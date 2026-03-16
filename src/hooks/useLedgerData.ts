@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format, addMonths, subMonths, parseISO, differenceInMonths } from 'date-fns';
-import type { LedgerData, MonthData, Expense, CardBill, Installment } from '@/types/ledger';
+import { format, addMonths, subMonths, differenceInMonths } from 'date-fns';
+import type { LedgerData, MonthData, Expense, CardBill, Installment, ExtraIncome, Investment } from '@/types/ledger';
 import { emptyMonthData } from '@/types/ledger';
 
 const STORAGE_KEY = 'ledger_data';
@@ -8,7 +8,18 @@ const STORAGE_KEY = 'ledger_data';
 const loadData = (): LedgerData => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : { monthlyData: {}, installments: [] };
+    if (!saved) return { monthlyData: {}, installments: [] };
+    const parsed = JSON.parse(saved);
+    // Migrate old month data missing new fields
+    if (parsed.monthlyData) {
+      for (const key of Object.keys(parsed.monthlyData)) {
+        const m = parsed.monthlyData[key];
+        if (!m.extraIncomes) m.extraIncomes = [];
+        if (!m.extraordinaryExpenses) m.extraordinaryExpenses = [];
+        if (!m.investments) m.investments = [];
+      }
+    }
+    return parsed;
   } catch {
     return { monthlyData: {}, installments: [] };
   }
@@ -31,7 +42,7 @@ export function useLedgerData() {
       ...prev,
       monthlyData: {
         ...prev.monthlyData,
-        [monthKey]: updater(prev.monthlyData[monthKey] || { ...emptyMonthData }),
+        [monthKey]: updater(prev.monthlyData[monthKey] || { ...emptyMonthData, extraIncomes: [], extraordinaryExpenses: [], investments: [] }),
       },
     }));
   }, [monthKey]);
@@ -67,6 +78,45 @@ export function useLedgerData() {
   };
   const removeCard = (id: string) => {
     updateMonthData(m => ({ ...m, cardBills: m.cardBills.filter(c => c.id !== id) }));
+  };
+
+  // Extra Incomes
+  const addExtraIncome = () => {
+    const item: ExtraIncome = { id: crypto.randomUUID(), description: '', value: 0 };
+    updateMonthData(m => ({ ...m, extraIncomes: [...(m.extraIncomes || []), item] }));
+  };
+  const updateExtraIncome = (id: string, patch: Partial<ExtraIncome>) => {
+    updateMonthData(m => ({
+      ...m,
+      extraIncomes: (m.extraIncomes || []).map(e => e.id === id ? { ...e, ...patch } : e),
+    }));
+  };
+  const removeExtraIncome = (id: string) => {
+    updateMonthData(m => ({ ...m, extraIncomes: (m.extraIncomes || []).filter(e => e.id !== id) }));
+  };
+
+  // Extraordinary Expenses
+  const addExtraordinaryExpense = () => {
+    const item: Expense = { id: crypto.randomUUID(), name: '', value: 0, paid: false };
+    updateMonthData(m => ({ ...m, extraordinaryExpenses: [...(m.extraordinaryExpenses || []), item] }));
+  };
+  const updateExtraordinaryExpense = (id: string, patch: Partial<Expense>) => {
+    updateMonthData(m => ({
+      ...m,
+      extraordinaryExpenses: (m.extraordinaryExpenses || []).map(e => e.id === id ? { ...e, ...patch } : e),
+    }));
+  };
+  const removeExtraordinaryExpense = (id: string) => {
+    updateMonthData(m => ({ ...m, extraordinaryExpenses: (m.extraordinaryExpenses || []).filter(e => e.id !== id) }));
+  };
+
+  // Investments
+  const addInvestment = (type: 'CDB' | 'Bitcoin', description: string, value: number) => {
+    const item: Investment = { id: crypto.randomUUID(), type, description, value, date: monthKey };
+    updateMonthData(m => ({ ...m, investments: [...(m.investments || []), item] }));
+  };
+  const removeInvestment = (id: string) => {
+    updateMonthData(m => ({ ...m, investments: (m.investments || []).filter(i => i.id !== id) }));
   };
 
   // Installments
@@ -117,17 +167,22 @@ export function useLedgerData() {
     setData(prev => ({ ...prev, installments: prev.installments.filter(i => i.id !== id) }));
   };
 
-  // Totals
+  // Totals — only paid items count toward expenses and balance
   const totalExpenses =
-    currentMonthData.variableExpenses.reduce((a, c) => a + Number(c.value), 0) +
-    currentMonthData.cardBills.reduce((a, c) => a + Number(c.value), 0) +
-    activeInstallments.reduce((a, c) => a + Number(c.monthlyValue), 0);
+    currentMonthData.variableExpenses.filter(e => e.paid).reduce((a, c) => a + Number(c.value), 0) +
+    currentMonthData.cardBills.filter(c => c.paid).reduce((a, c) => a + Number(c.value), 0) +
+    (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).reduce((a, c) => a + Number(c.value), 0) +
+    activeInstallments.filter(i => i.paidMonths.includes(monthKey)).reduce((a, c) => a + Number(c.monthlyValue), 0);
 
-  const balance = currentMonthData.income - totalExpenses;
+  const totalIncome = currentMonthData.income +
+    (currentMonthData.extraIncomes || []).reduce((a, c) => a + Number(c.value), 0);
+
+  const balance = totalIncome - totalExpenses;
 
   return {
     currentDate,
     monthKey,
+    data,
     setCurrentDate,
     goNextMonth: () => setCurrentDate(d => addMonths(d, 1)),
     goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)),
@@ -135,8 +190,11 @@ export function useLedgerData() {
     setIncome,
     addExpense, updateExpense, removeExpense,
     addCard, updateCard, removeCard,
+    addExtraIncome, updateExtraIncome, removeExtraIncome,
+    addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense,
+    addInvestment, removeInvestment,
     activeInstallments, getInstallmentNumber,
     addInstallment, toggleInstallmentPaid, removeInstallment,
-    totalExpenses, balance,
+    totalExpenses, totalIncome, balance,
   };
 }

@@ -22,7 +22,7 @@ export function SummaryCards({ income, totalExpenses, balance }: Props) {
       <div className="ledger-card p-5">
         <div className="flex items-center gap-2 mb-2">
           <TrendingDown size={14} className="text-destructive" />
-          <span className="ledger-label !mb-0">Despesas</span>
+          <span className="ledger-label !mb-0">Despesas (pagas)</span>
         </div>
         <p className="text-2xl font-bold font-mono tracking-tighter text-destructive">
           {formatCurrency(totalExpenses)}

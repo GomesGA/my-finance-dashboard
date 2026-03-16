@@ -48,6 +48,48 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
+
+  .dark {
+    --background: 220 20% 10%;
+    --foreground: 210 20% 90%;
+
+    --card: 220 18% 13%;
+    --card-foreground: 210 20% 90%;
+
+    --popover: 220 18% 13%;
+    --popover-foreground: 210 20% 90%;
+
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 18%;
+    --secondary-foreground: 210 20% 90%;
+
+    --muted: 220 16% 18%;
+    --muted-foreground: 215 16% 55%;
+
+    --accent: 220 16% 18%;
+    --accent-foreground: 210 20% 90%;
+
+    --destructive: 347 77% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 220 16% 22%;
+    --input: 220 16% 22%;
+    --ring: 239 84% 67%;
+
+    --sidebar-background: 220 20% 10%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 210 20% 90%;
+    --sidebar-primary-foreground: 220 20% 10%;
+    --sidebar-accent: 220 16% 18%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 220 16% 22%;
+    --sidebar-ring: 239 84% 67%;
+  }
 }
 
 @layer base {
@@ -72,7 +114,7 @@
   }
 
   .ledger-input {
-    @apply bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none transition-all;
+    @apply bg-background border border-border rounded-lg px-3 py-2 text-sm outline-none transition-all text-foreground;
     @apply focus:ring-2 focus:ring-primary/30 focus:border-primary;
   }
 
@@ -86,7 +128,7 @@
   }
 
   .ledger-btn-outline {
-    @apply text-xs border border-border px-3 py-1.5 rounded-lg transition-colors;
+    @apply text-xs border border-border px-3 py-1.5 rounded-lg transition-colors text-foreground;
     @apply hover:bg-muted;
   }
 
