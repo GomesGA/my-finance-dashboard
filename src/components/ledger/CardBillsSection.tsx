@@ -19,7 +19,7 @@ export function CardBillsSection({ cards, onAdd, onUpdate, onRemove }: Props) {
         </h2>
         <button onClick={onAdd} className="ledger-btn-outline flex items-center gap-1">
           <Plus size={14} />
-          Adicionar Cartão
+          Adicionar
         </button>
       </div>
 
@@ -31,36 +31,36 @@ export function CardBillsSection({ cards, onAdd, onUpdate, onRemove }: Props) {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="flex items-center gap-3 group"
+              className="flex items-center gap-2 group min-w-0"
             >
               <input
                 type="checkbox"
                 checked={card.paid}
                 onChange={() => onUpdate(card.id, { paid: !card.paid })}
-                className="ledger-checkbox"
+                className="ledger-checkbox shrink-0"
               />
               <input
                 type="text"
-                placeholder="Nome do cartão"
-                className={`ledger-input flex-1 ${card.paid ? 'line-through text-muted-foreground' : ''}`}
+                placeholder="Cartão"
+                className={`ledger-input min-w-0 flex-1 ${card.paid ? 'line-through text-muted-foreground' : ''}`}
                 value={card.name}
                 onChange={e => onUpdate(card.id, { name: e.target.value })}
               />
-              <div className="relative">
+              <div className="relative shrink-0 w-24">
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
                 <input
                   type="number"
                   placeholder="0,00"
-                  className="ledger-input w-28 font-mono pl-7"
+                  className="ledger-input w-full font-mono pl-7"
                   value={card.value || ''}
                   onChange={e => onUpdate(card.id, { value: Number(e.target.value) })}
                 />
               </div>
               <button
                 onClick={() => onRemove(card.id)}
-                className="p-2 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                className="p-1.5 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
               >
-                <Trash2 size={16} />
+                <Trash2 size={14} />
               </button>
             </motion.div>
           ))}
