@@ -1,12 +1,63 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useLedgerData } from '@/hooks/useLedgerData';
+import { MonthSelector } from '@/components/ledger/MonthSelector';
+import { SummaryCards } from '@/components/ledger/SummaryCards';
+import { IncomeSection } from '@/components/ledger/IncomeSection';
+import { CardBillsSection } from '@/components/ledger/CardBillsSection';
+import { ExpensesSection } from '@/components/ledger/ExpensesSection';
+import { InstallmentsSection } from '@/components/ledger/InstallmentsSection';
 
 const Index = () => {
+  const ledger = useLedgerData();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background text-foreground pb-20">
+      <MonthSelector
+        currentDate={ledger.currentDate}
+        onPrev={ledger.goPrevMonth}
+        onNext={ledger.goNextMonth}
+      />
+
+      <main className="max-w-5xl mx-auto px-4 pt-8 space-y-6">
+        <SummaryCards
+          income={ledger.currentMonthData.income}
+          totalExpenses={ledger.totalExpenses}
+          balance={ledger.balance}
+        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left column */}
+          <div className="lg:col-span-4 space-y-6">
+            <IncomeSection
+              income={ledger.currentMonthData.income}
+              onChange={ledger.setIncome}
+            />
+            <CardBillsSection
+              cards={ledger.currentMonthData.cardBills}
+              onAdd={ledger.addCard}
+              onUpdate={ledger.updateCard}
+              onRemove={ledger.removeCard}
+            />
+          </div>
+
+          {/* Right column */}
+          <div className="lg:col-span-8 space-y-6">
+            <ExpensesSection
+              expenses={ledger.currentMonthData.variableExpenses}
+              onAdd={ledger.addExpense}
+              onUpdate={ledger.updateExpense}
+              onRemove={ledger.removeExpense}
+            />
+            <InstallmentsSection
+              installments={ledger.activeInstallments}
+              monthKey={ledger.monthKey}
+              getNumber={ledger.getInstallmentNumber}
+              onAdd={ledger.addInstallment}
+              onTogglePaid={ledger.toggleInstallmentPaid}
+              onRemove={ledger.removeInstallment}
+            />
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
