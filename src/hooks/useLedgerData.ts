@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, addMonths, subMonths, differenceInMonths } from 'date-fns';
-import type { LedgerData, MonthData, Expense, CardBill, Installment, ExtraIncome, Investment, Goal, LedgerEntry } from '@/types/ledger';
+import type { LedgerData, MonthData, Expense, CardBill, Installment, ExtraIncome, Investment, Goal, LedgerEntry, RecurringExpense, ManualEntry } from '@/types/ledger';
 import { emptyMonthData } from '@/types/ledger';
 
 const STORAGE_KEY = 'ledger_data';
@@ -8,7 +8,7 @@ const STORAGE_KEY = 'ledger_data';
 const loadData = (): LedgerData => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return { monthlyData: {}, installments: [], goals: [] };
+    if (!saved) return { monthlyData: {}, installments: [], goals: [], recurringExpenses: [] };
     const parsed = JSON.parse(saved);
     if (parsed.monthlyData) {
       for (const key of Object.keys(parsed.monthlyData)) {
@@ -16,7 +16,10 @@ const loadData = (): LedgerData => {
         if (!m.extraIncomes) m.extraIncomes = [];
         if (!m.extraordinaryExpenses) m.extraordinaryExpenses = [];
         if (!m.investments) m.investments = [];
-        // Migrate old investments without action
+        if (!m.manualEntries) m.manualEntries = [];
+        if (!m.manualExits) m.manualExits = [];
+        if (!m.recurringPaidState) m.recurringPaidState = {};
+        if (!m.recurringValueOverrides) m.recurringValueOverrides = {};
         m.investments = m.investments.map((inv: any) => ({
           ...inv,
           action: inv.action || 'deposit',
@@ -24,9 +27,10 @@ const loadData = (): LedgerData => {
       }
     }
     if (!parsed.goals) parsed.goals = [];
+    if (!parsed.recurringExpenses) parsed.recurringExpenses = [];
     return parsed;
   } catch {
-    return { monthlyData: {}, installments: [], goals: [] };
+    return { monthlyData: {}, installments: [], goals: [], recurringExpenses: [] };
   }
 };
 
@@ -47,7 +51,7 @@ export function useLedgerData() {
       ...prev,
       monthlyData: {
         ...prev.monthlyData,
-        [monthKey]: updater(prev.monthlyData[monthKey] || { ...emptyMonthData }),
+        [monthKey]: updater(prev.monthlyData[monthKey] || { ...emptyMonthData, recurringPaidState: {}, recurringValueOverrides: {}, manualEntries: [], manualExits: [] }),
       },
     }));
   }, [monthKey]);
@@ -55,7 +59,7 @@ export function useLedgerData() {
   // Income
   const setIncome = (val: number) => updateMonthData(m => ({ ...m, income: val }));
 
-  // Variable Expenses
+  // Variable Expenses (legacy - kept for extraordinary)
   const addExpense = () => {
     const item: Expense = { id: crypto.randomUUID(), name: '', value: 0, paid: false };
     updateMonthData(m => ({ ...m, variableExpenses: [...m.variableExpenses, item] }));
@@ -115,6 +119,55 @@ export function useLedgerData() {
     updateMonthData(m => ({ ...m, extraordinaryExpenses: (m.extraordinaryExpenses || []).filter(e => e.id !== id) }));
   };
 
+  // Recurring Expenses (global, with temporal propagation)
+  const activeRecurringExpenses = useMemo(() => {
+    return data.recurringExpenses.filter(re => {
+      if (re.startMonth > monthKey) return false;
+      if (re.endMonth && re.endMonth <= monthKey) return false;
+      return true;
+    });
+  }, [data.recurringExpenses, monthKey]);
+
+  const addRecurringExpense = (name: string, value: number, dueDay: number) => {
+    const re: RecurringExpense = {
+      id: crypto.randomUUID(),
+      name,
+      value,
+      dueDay,
+      startMonth: monthKey,
+    };
+    setData(prev => ({ ...prev, recurringExpenses: [...prev.recurringExpenses, re] }));
+  };
+
+  const softDeleteRecurringExpense = (id: string) => {
+    setData(prev => ({
+      ...prev,
+      recurringExpenses: prev.recurringExpenses.map(re =>
+        re.id === id ? { ...re, endMonth: monthKey } : re
+      ),
+    }));
+  };
+
+  const toggleRecurringPaid = (id: string) => {
+    updateMonthData(m => ({
+      ...m,
+      recurringPaidState: {
+        ...m.recurringPaidState,
+        [id]: !m.recurringPaidState[id],
+      },
+    }));
+  };
+
+  const updateRecurringValue = (id: string, value: number) => {
+    updateMonthData(m => ({
+      ...m,
+      recurringValueOverrides: {
+        ...m.recurringValueOverrides,
+        [id]: value,
+      },
+    }));
+  };
+
   // Investments
   const addInvestment = (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw') => {
     const item: Investment = { id: crypto.randomUUID(), type, description, value, date: monthKey, action };
@@ -124,7 +177,23 @@ export function useLedgerData() {
     updateMonthData(m => ({ ...m, investments: (m.investments || []).filter(i => i.id !== id) }));
   };
 
-  // Installments (display only, no math impact)
+  // Manual Entries & Exits
+  const addManualEntry = (date: string, description: string, value: number) => {
+    const item: ManualEntry = { id: crypto.randomUUID(), date, description, value };
+    updateMonthData(m => ({ ...m, manualEntries: [...(m.manualEntries || []), item] }));
+  };
+  const removeManualEntry = (id: string) => {
+    updateMonthData(m => ({ ...m, manualEntries: (m.manualEntries || []).filter(e => e.id !== id) }));
+  };
+  const addManualExit = (date: string, description: string, value: number) => {
+    const item: ManualEntry = { id: crypto.randomUUID(), date, description, value };
+    updateMonthData(m => ({ ...m, manualExits: [...(m.manualExits || []), item] }));
+  };
+  const removeManualExit = (id: string) => {
+    updateMonthData(m => ({ ...m, manualExits: (m.manualExits || []).filter(e => e.id !== id) }));
+  };
+
+  // Installments (display only)
   const activeInstallments = data.installments.filter(inst => {
     const startParts = inst.startDate.split('-');
     const startDate = new Date(Number(startParts[0]), Number(startParts[1]) - 1, 1);
@@ -187,7 +256,7 @@ export function useLedgerData() {
     setData(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
   };
 
-  // Computed Entries (Entradas)
+  // Computed Entries
   const computedEntries: LedgerEntry[] = useMemo(() => {
     const entries: LedgerEntry[] = [];
     if (currentMonthData.income > 0) {
@@ -201,32 +270,45 @@ export function useLedgerData() {
     (currentMonthData.investments || []).filter(i => i.action === 'withdraw').forEach(inv => {
       entries.push({ id: `inv-${inv.id}`, date: inv.date, description: `Resgate ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-withdraw' });
     });
+    (currentMonthData.manualEntries || []).forEach(me => {
+      entries.push({ id: `me-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-entry' });
+    });
     return entries;
   }, [currentMonthData, monthKey]);
 
-  // Computed Exits (Saídas)
+  // Computed Exits
   const computedExits: LedgerEntry[] = useMemo(() => {
     const exits: LedgerEntry[] = [];
-    currentMonthData.variableExpenses.filter(e => e.paid).forEach(e => {
-      exits.push({ id: `exp-${e.id}`, date: monthKey, description: e.name || 'Despesa', value: Number(e.value), source: 'expense' });
+    // Recurring expenses (paid)
+    activeRecurringExpenses.forEach(re => {
+      if (currentMonthData.recurringPaidState[re.id]) {
+        const val = currentMonthData.recurringValueOverrides[re.id] ?? re.value;
+        exits.push({ id: `rec-${re.id}`, date: `${monthKey}-${String(re.dueDay).padStart(2, '0')}`, description: re.name, value: Number(val), source: 'recurring' });
+      }
     });
+    // Card bills (paid)
     currentMonthData.cardBills.filter(c => c.paid).forEach(c => {
       exits.push({ id: `card-${c.id}`, date: monthKey, description: c.name || 'Cartão', value: Number(c.value), source: 'card' });
     });
+    // Extraordinary expenses (paid)
     (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).forEach(e => {
       exits.push({ id: `ext-${e.id}`, date: monthKey, description: e.name || 'Despesa Extra', value: Number(e.value), source: 'extraordinary' });
     });
+    // Investment deposits
     (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => {
       exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit' });
     });
+    // Manual exits
+    (currentMonthData.manualExits || []).forEach(me => {
+      exits.push({ id: `mx-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-exit' });
+    });
     return exits;
-  }, [currentMonthData, monthKey]);
+  }, [currentMonthData, monthKey, activeRecurringExpenses]);
 
   const totalIncome = computedEntries.reduce((a, c) => a + c.value, 0);
   const totalExpenses = computedExits.reduce((a, c) => a + c.value, 0);
   const balance = totalIncome - totalExpenses;
 
-  // All investments across all months (for portfolio page)
   const allInvestments = useMemo(() => {
     return Object.entries(data.monthlyData).flatMap(([, m]) => m.investments || []);
   }, [data.monthlyData]);
@@ -244,7 +326,10 @@ export function useLedgerData() {
     addCard, updateCard, removeCard,
     addExtraIncome, updateExtraIncome, removeExtraIncome,
     addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense,
+    activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense,
+    toggleRecurringPaid, updateRecurringValue,
     addInvestment, removeInvestment,
+    addManualEntry, removeManualEntry, addManualExit, removeManualExit,
     activeInstallments, getInstallmentNumber,
     addInstallment, toggleInstallmentPaid, removeInstallment,
     addGoal, toggleGoalPurchased, removeGoal,
