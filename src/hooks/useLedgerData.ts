@@ -1,48 +1,96 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, addMonths, subMonths, differenceInMonths } from 'date-fns';
+import { supabase } from '@/lib/supabase'; // IMPORTAÇÃO DO BANCO DE DADOS
 import type { LedgerData, MonthData, Expense, CardBill, Installment, ExtraIncome, Investment, Goal, LedgerEntry, RecurringExpense, ManualEntry } from '@/types/ledger';
 import { emptyMonthData } from '@/types/ledger';
 
 const STORAGE_KEY = 'ledger_data';
 
-const loadData = (): LedgerData => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return { monthlyData: {}, installments: [], goals: [], recurringExpenses: [] };
-    const parsed = JSON.parse(saved);
-    if (parsed.monthlyData) {
-      for (const key of Object.keys(parsed.monthlyData)) {
-        const m = parsed.monthlyData[key];
-        if (!m.extraIncomes) m.extraIncomes = [];
-        if (!m.extraordinaryExpenses) m.extraordinaryExpenses = [];
-        if (!m.investments) m.investments = [];
-        if (!m.manualEntries) m.manualEntries = [];
-        if (!m.manualExits) m.manualExits = [];
-        if (!m.recurringPaidState) m.recurringPaidState = {};
-        if (!m.recurringValueOverrides) m.recurringValueOverrides = {};
-        m.investments = m.investments.map((inv: any) => ({
-          ...inv,
-          action: inv.action || 'deposit',
-        }));
-      }
-    }
-    if (!parsed.goals) parsed.goals = [];
-    if (!parsed.recurringExpenses) parsed.recurringExpenses = [];
-    return parsed;
-  } catch {
-    return { monthlyData: {}, installments: [], goals: [], recurringExpenses: [] };
-  }
-};
+// Estado inicial vazio
+const getInitialData = (): LedgerData => ({ monthlyData: {}, installments: [], goals: [], recurringExpenses: [] });
 
 export function useLedgerData() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [data, setData] = useState<LedgerData>(loadData);
+  const [data, setData] = useState<LedgerData>(getInitialData());
+  const [isLoaded, setIsLoaded] = useState(false); // Trava de segurança
 
   const monthKey = format(currentDate, 'yyyy-MM');
 
+  // 1. CARREGAR OS DADOS DO SUPABASE AO ABRIR O SITE
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }, [data]);
+    const fetchCloudData = async () => {
+      try {
+        const { data: dbData, error } = await supabase
+          .from('ledger_cloud')
+          .select('dados')
+          .eq('id', 1)
+          .single();
+
+        if (error) throw error;
+
+        if (dbData && dbData.dados) {
+          const parsed = dbData.dados as LedgerData;
+          
+          // Validações de segurança originais
+          if (parsed.monthlyData) {
+            for (const key of Object.keys(parsed.monthlyData)) {
+              const m = parsed.monthlyData[key];
+              if (!m.extraIncomes) m.extraIncomes = [];
+              if (!m.extraordinaryExpenses) m.extraordinaryExpenses = [];
+              if (!m.investments) m.investments = [];
+              if (!m.manualEntries) m.manualEntries = [];
+              if (!m.manualExits) m.manualExits = [];
+              if (!m.recurringPaidState) m.recurringPaidState = {};
+              if (!m.recurringValueOverrides) m.recurringValueOverrides = {};
+              m.investments = m.investments.map((inv: any) => ({
+                ...inv,
+                action: inv.action || 'deposit',
+              }));
+            }
+          }
+          if (!parsed.goals) parsed.goals = [];
+          if (!parsed.recurringExpenses) parsed.recurringExpenses = [];
+          
+          setData(parsed);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar do Supabase. Tentando LocalStorage...", err);
+        // Fallback: Se estiver sem internet, tenta carregar do PC
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) setData(JSON.parse(saved));
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    fetchCloudData();
+  }, []);
+
+  // 2. SALVAR NA NUVEM SEMPRE QUE O ESTADO MUDAR
+  useEffect(() => {
+    if (!isLoaded) return; // Impede de salvar vazio antes de carregar da nuvem
+
+    const saveToCloud = async () => {
+      try {
+        await supabase
+          .from('ledger_cloud')
+          .update({ dados: data })
+          .eq('id', 1);
+
+        // Mantém backup no localStorage do PC também
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (err) {
+        console.error("Erro ao salvar no Supabase:", err);
+      }
+    };
+
+    // Debounce: espera 500ms para não sobrecarregar o banco enquanto você digita um número
+    const timeoutId = setTimeout(() => {
+      saveToCloud();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [data, isLoaded]);
 
   const currentMonthData: MonthData = data.monthlyData[monthKey] || { ...emptyMonthData };
 
