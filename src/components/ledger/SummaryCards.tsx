@@ -15,7 +15,8 @@ export function SummaryCards({ income, totalExpenses, balance }: Props) {
           <TrendingUp size={14} className="text-success shrink-0" />
           <span className="ledger-label !mb-0 truncate">Receita</span>
         </div>
-        <p className="text-xl sm:text-2xl font-bold font-mono tracking-tighter text-success truncate">
+        {/* Fonte menor (text-lg) e sem o 'truncate' no valor */}
+        <p className="text-lg font-bold font-mono tracking-tighter text-success">
           {formatCurrency(income)}
         </p>
       </div>
@@ -24,7 +25,7 @@ export function SummaryCards({ income, totalExpenses, balance }: Props) {
           <TrendingDown size={14} className="text-destructive shrink-0" />
           <span className="ledger-label !mb-0 truncate">Despesas</span>
         </div>
-        <p className="text-xl sm:text-2xl font-bold font-mono tracking-tighter text-destructive truncate">
+        <p className="text-lg font-bold font-mono tracking-tighter text-destructive">
           {formatCurrency(totalExpenses)}
         </p>
       </div>
@@ -33,7 +34,7 @@ export function SummaryCards({ income, totalExpenses, balance }: Props) {
           <Wallet size={14} className="text-primary shrink-0" />
           <span className="ledger-label !mb-0 truncate">Saldo</span>
         </div>
-        <p className={`text-xl sm:text-2xl font-bold font-mono tracking-tighter truncate ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
+        <p className={`text-lg font-bold font-mono tracking-tighter ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
           {formatCurrency(balance)}
         </p>
       </div>

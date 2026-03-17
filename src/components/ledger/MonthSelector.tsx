@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Sun, Moon, LayoutDashboard, Target, TrendingUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sun, Moon, LayoutDashboard, Target, TrendingUp, Landmark } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { TabId } from '@/pages/Index';
@@ -25,7 +25,12 @@ export function MonthSelector({ currentDate, onPrev, onNext, dark, onToggleTheme
       <div className="max-w-6xl mx-auto px-4">
         {/* Top row: logo + month selector + theme */}
         <div className="h-14 flex items-center justify-between">
-          <h1 className="text-lg font-bold tracking-tight text-foreground">Ledger.</h1>
+          
+          {/* AQUI ESTÁ A MUDANÇA: Ícone e Texto */}
+          <div className="flex items-center gap-2">
+            <Landmark size={20} className="text-primary" />
+            <h1 className="text-lg font-bold tracking-tight text-foreground">Controle Financeiro</h1>
+          </div>
 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">

@@ -1,79 +1,117 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { format, addMonths, subMonths, differenceInMonths } from 'date-fns';
-import { supabase } from '@/lib/supabase'; // IMPORTAÇÃO DO BANCO DE DADOS
+import { supabase } from '@/lib/supabase';
 import type { LedgerData, MonthData, Expense, CardBill, Installment, ExtraIncome, Investment, Goal, LedgerEntry, RecurringExpense, ManualEntry } from '@/types/ledger';
 import { emptyMonthData } from '@/types/ledger';
 
 const STORAGE_KEY = 'ledger_data';
 
-// Estado inicial vazio
 const getInitialData = (): LedgerData => ({ monthlyData: {}, installments: [], goals: [], recurringExpenses: [] });
 
 export function useLedgerData() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [data, setData] = useState<LedgerData>(getInitialData());
-  const [isLoaded, setIsLoaded] = useState(false); // Trava de segurança
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  // Nova trava de segurança para impedir que ele salve dados vazios por cima da nuvem
+  const isFetchingRef = useRef(false); 
 
   const monthKey = format(currentDate, 'yyyy-MM');
 
-  
-  // 1. CARREGAR OS DADOS DO SUPABASE AO ABRIR O SITE
+  // 1. CARREGAR OS DADOS DO SUPABASE (Com escuta de Login)
   useEffect(() => {
-    const fetchCloudData = async () => {
+    const fetchCloudData = async (userId: string) => {
+      isFetchingRef.current = true; // Ativa a trava de segurança
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return; // Se não tiver logado, não faz nada
-
         const { data: dbData, error } = await supabase
           .from('user_ledger')
           .select('dados')
-          .eq('user_id', session.user.id)
+          .eq('user_id', userId)
           .single();
 
-        if (error && error.code !== 'PGRST116') throw error; // Ignora erro de "linha não encontrada" (usuário novo)
+        if (error && error.code !== 'PGRST116') throw error;
 
         if (dbData && dbData.dados) {
           const parsed = dbData.dados as LedgerData;
-          // ... (mantenha todas as validações de segurança originais que já estavam aqui) ...
+          
+          // Mantendo as validações de segurança originais
+          if (parsed.monthlyData) {
+            for (const key of Object.keys(parsed.monthlyData)) {
+              const m = parsed.monthlyData[key];
+              if (!m.extraIncomes) m.extraIncomes = [];
+              if (!m.extraordinaryExpenses) m.extraordinaryExpenses = [];
+              if (!m.investments) m.investments = [];
+              if (!m.manualEntries) m.manualEntries = [];
+              if (!m.manualExits) m.manualExits = [];
+              if (!m.recurringPaidState) m.recurringPaidState = {};
+              if (!m.recurringValueOverrides) m.recurringValueOverrides = {};
+              m.investments = m.investments.map((inv: any) => ({
+                ...inv,
+                action: inv.action || 'deposit',
+              }));
+            }
+          }
+          if (!parsed.goals) parsed.goals = [];
+          if (!parsed.recurringExpenses) parsed.recurringExpenses = [];
+          
           setData(parsed);
-        } else {
-          // Se o usuário é novo e não tem linha no banco, cria uma para ele
-          await supabase.from('user_ledger').insert([{ user_id: session.user.id }]);
         }
       } catch (err) {
         console.error("Erro ao carregar do Supabase", err);
       } finally {
+        isFetchingRef.current = false; // Desativa a trava de segurança
         setIsLoaded(true);
       }
     };
-    fetchCloudData();
+
+    // Tenta buscar ao abrir o site
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) fetchCloudData(session.user.id);
+      else setIsLoaded(true);
+    });
+
+    // A MÁGICA: Escuta o exato momento em que o login é concluído
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && event === 'SIGNED_IN') {
+        fetchCloudData(session.user.id);
+      } else if (!session) {
+        setData(getInitialData()); // Se você clicar em "Sair", limpa a tela
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // 2. SALVAR NA NUVEM SEMPRE QUE O ESTADO MUDAR
-    useEffect(() => {
-      if (!isLoaded) return;
+  useEffect(() => {
+    // Se não carregou ainda OU se estiver no meio do download (fetching), NÃO SALVE!
+    if (!isLoaded || isFetchingRef.current) return; 
 
-      const saveToCloud = async () => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) return;
+    const saveToCloud = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
 
-          await supabase
-            .from('user_ledger')
-            .update({ dados: data })
-            .eq('user_id', session.user.id);
+        // O upsert garante que, se a linha não existir, ele cria. Se existir, ele atualiza.
+        await supabase
+          .from('user_ledger')
+          .upsert(
+            { user_id: session.user.id, dados: data }, 
+            { onConflict: 'user_id' }
+          );
 
-        } catch (err) {
-          console.error("Erro ao salvar no Supabase:", err);
-        }
-      };
+      } catch (err) {
+        console.error("Erro ao salvar no Supabase:", err);
+      }
+    };
 
-      const timeoutId = setTimeout(() => { saveToCloud(); }, 500);
-      return () => clearTimeout(timeoutId);
-    }, [data, isLoaded]);
+    const timeoutId = setTimeout(() => { saveToCloud(); }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [data, isLoaded]);
 
+  // Daqui para baixo, o código continua igual...
   const currentMonthData: MonthData = data.monthlyData[monthKey] || { ...emptyMonthData };
-
+  
   const updateMonthData = useCallback((updater: (prev: MonthData) => MonthData) => {
     setData(prev => ({
       ...prev,
