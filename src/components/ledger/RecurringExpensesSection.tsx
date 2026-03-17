@@ -34,7 +34,7 @@ export function RecurringExpensesSection({
           <Calendar size={18} className="text-muted-foreground" />
           Despesas Recorrentes
         </h2>
-        <button onClick={() => setShowForm(true)} className="ledger-btn-primary flex items-center gap-1">
+        <button onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1">
           <Plus size={14} />
           Adicionar
         </button>

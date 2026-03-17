@@ -1,8 +1,6 @@
 import { SummaryCards } from './SummaryCards';
 import { IncomeSection } from './IncomeSection';
-import { ExtraIncomeSection } from './ExtraIncomeSection';
 import { CardBillsSection } from './CardBillsSection';
-import { ExtraordinaryExpensesSection } from './ExtraordinaryExpensesSection';
 import { InvestmentWidget } from './InvestmentWidget';
 import { RecurringExpensesSection } from './RecurringExpensesSection';
 import { LedgerTable } from './LedgerTable';
@@ -15,9 +13,9 @@ interface Props {
 
 export function DashboardTab({ ledger }: Props) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* Left column ~40% */}
-      <div className="lg:col-span-5 space-y-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Coluna 1: Esquerda (Resumo, Salário, Investimentos e Parcelas) */}
+      <div className="space-y-6">
         <SummaryCards
           income={ledger.totalIncome}
           totalExpenses={ledger.totalExpenses}
@@ -29,32 +27,38 @@ export function DashboardTab({ ledger }: Props) {
           onChange={ledger.setIncome}
         />
 
-        <ExtraIncomeSection
-          items={ledger.currentMonthData.extraIncomes || []}
-          onAdd={ledger.addExtraIncome}
-          onUpdate={ledger.updateExtraIncome}
-          onRemove={ledger.removeExtraIncome}
-        />
-
-        <CardBillsSection
-          cards={ledger.currentMonthData.cardBills}
-          onAdd={ledger.addCard}
-          onUpdate={ledger.updateCard}
-          onRemove={ledger.removeCard}
-        />
-
-        <ExtraordinaryExpensesSection
-          expenses={ledger.currentMonthData.extraordinaryExpenses || []}
-          onAdd={ledger.addExtraordinaryExpense}
-          onUpdate={ledger.updateExtraordinaryExpense}
-          onRemove={ledger.removeExtraordinaryExpense}
-        />
-
         <InvestmentWidget onAdd={ledger.addInvestment} />
+
+        <InstallmentsSection
+          installments={ledger.activeInstallments}
+          monthKey={ledger.monthKey}
+          getNumber={ledger.getInstallmentNumber}
+          onAdd={ledger.addInstallment}
+          onRemove={ledger.removeInstallment}
+        />
       </div>
 
-      {/* Right column ~60% */}
-      <div className="lg:col-span-7 space-y-6">
+      {/* Coluna 2: Meio (Entradas e Saídas - O Livro-Razão) */}
+      <div className="space-y-6">
+        <LedgerTable
+          title="Entradas"
+          entries={ledger.computedEntries}
+          type="income"
+          onAddManual={ledger.addManualEntry}
+          onRemoveManual={ledger.removeManualEntry}
+        />
+        
+        <LedgerTable
+          title="Saídas"
+          entries={ledger.computedExits}
+          type="expense"
+          onAddManual={ledger.addManualExit}
+          onRemoveManual={ledger.removeManualExit}
+        />
+      </div>
+
+      {/* Coluna 3: Direita (Despesas Recorrentes e Faturas de Cartão) */}
+      <div className="space-y-6">
         <RecurringExpensesSection
           recurring={ledger.activeRecurringExpenses}
           monthData={ledger.currentMonthData}
@@ -64,27 +68,11 @@ export function DashboardTab({ ledger }: Props) {
           onUpdateValue={ledger.updateRecurringValue}
         />
 
-        <LedgerTable
-          title="Entradas"
-          entries={ledger.computedEntries}
-          type="income"
-          onAddManual={ledger.addManualEntry}
-          onRemoveManual={ledger.removeManualEntry}
-        />
-        <LedgerTable
-          title="Saídas"
-          entries={ledger.computedExits}
-          type="expense"
-          onAddManual={ledger.addManualExit}
-          onRemoveManual={ledger.removeManualExit}
-        />
-
-        <InstallmentsSection
-          installments={ledger.activeInstallments}
-          monthKey={ledger.monthKey}
-          getNumber={ledger.getInstallmentNumber}
-          onAdd={ledger.addInstallment}
-          onRemove={ledger.removeInstallment}
+        <CardBillsSection
+          cards={ledger.currentMonthData.cardBills}
+          onAdd={ledger.addCard}
+          onUpdate={ledger.updateCard}
+          onRemove={ledger.removeCard}
         />
       </div>
     </div>

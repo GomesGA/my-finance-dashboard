@@ -25,7 +25,9 @@ const Index = () => {
         onTabChange={setActiveTab}
       />
 
-      <main className="max-w-6xl mx-auto px-4 pt-8">
+      {/* A mudança foi feita nesta linha abaixo: 
+          Trocamos max-w-6xl por w-full e max-w-[1600px] para ocupar bem as laterais */}
+      <main className="w-full max-w-[1600px] mx-auto px-4 lg:px-8 pt-8">
         {activeTab === 'dashboard' && <DashboardTab ledger={ledger} />}
         {activeTab === 'goals' && <GoalsTab ledger={ledger} />}
         {activeTab === 'investments' && <InvestmentsTab ledger={ledger} />}
