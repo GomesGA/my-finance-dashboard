@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format, addMonths, subMonths, differenceInMonths } from 'date-fns';
-import type { LedgerData, MonthData, Expense, CardBill, Installment, ExtraIncome, Investment } from '@/types/ledger';
+import type { LedgerData, MonthData, Expense, CardBill, Installment, ExtraIncome, Investment, Goal, LedgerEntry } from '@/types/ledger';
 import { emptyMonthData } from '@/types/ledger';
 
 const STORAGE_KEY = 'ledger_data';
@@ -8,20 +8,25 @@ const STORAGE_KEY = 'ledger_data';
 const loadData = (): LedgerData => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return { monthlyData: {}, installments: [] };
+    if (!saved) return { monthlyData: {}, installments: [], goals: [] };
     const parsed = JSON.parse(saved);
-    // Migrate old month data missing new fields
     if (parsed.monthlyData) {
       for (const key of Object.keys(parsed.monthlyData)) {
         const m = parsed.monthlyData[key];
         if (!m.extraIncomes) m.extraIncomes = [];
         if (!m.extraordinaryExpenses) m.extraordinaryExpenses = [];
         if (!m.investments) m.investments = [];
+        // Migrate old investments without action
+        m.investments = m.investments.map((inv: any) => ({
+          ...inv,
+          action: inv.action || 'deposit',
+        }));
       }
     }
+    if (!parsed.goals) parsed.goals = [];
     return parsed;
   } catch {
-    return { monthlyData: {}, installments: [] };
+    return { monthlyData: {}, installments: [], goals: [] };
   }
 };
 
@@ -42,7 +47,7 @@ export function useLedgerData() {
       ...prev,
       monthlyData: {
         ...prev.monthlyData,
-        [monthKey]: updater(prev.monthlyData[monthKey] || { ...emptyMonthData, extraIncomes: [], extraordinaryExpenses: [], investments: [] }),
+        [monthKey]: updater(prev.monthlyData[monthKey] || { ...emptyMonthData }),
       },
     }));
   }, [monthKey]);
@@ -111,15 +116,15 @@ export function useLedgerData() {
   };
 
   // Investments
-  const addInvestment = (type: 'CDB' | 'Bitcoin', description: string, value: number) => {
-    const item: Investment = { id: crypto.randomUUID(), type, description, value, date: monthKey };
+  const addInvestment = (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw') => {
+    const item: Investment = { id: crypto.randomUUID(), type, description, value, date: monthKey, action };
     updateMonthData(m => ({ ...m, investments: [...(m.investments || []), item] }));
   };
   const removeInvestment = (id: string) => {
     updateMonthData(m => ({ ...m, investments: (m.investments || []).filter(i => i.id !== id) }));
   };
 
-  // Installments
+  // Installments (display only, no math impact)
   const activeInstallments = data.installments.filter(inst => {
     const startParts = inst.startDate.split('-');
     const startDate = new Date(Number(startParts[0]), Number(startParts[1]) - 1, 1);
@@ -167,17 +172,64 @@ export function useLedgerData() {
     setData(prev => ({ ...prev, installments: prev.installments.filter(i => i.id !== id) }));
   };
 
-  // Totals — only paid items count toward expenses and balance
-  const totalExpenses =
-    currentMonthData.variableExpenses.filter(e => e.paid).reduce((a, c) => a + Number(c.value), 0) +
-    currentMonthData.cardBills.filter(c => c.paid).reduce((a, c) => a + Number(c.value), 0) +
-    (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).reduce((a, c) => a + Number(c.value), 0) +
-    activeInstallments.filter(i => i.paidMonths.includes(monthKey)).reduce((a, c) => a + Number(c.monthlyValue), 0);
+  // Goals
+  const addGoal = (name: string, targetValue: number) => {
+    const goal: Goal = { id: crypto.randomUUID(), name, targetValue, purchased: false };
+    setData(prev => ({ ...prev, goals: [...prev.goals, goal] }));
+  };
+  const toggleGoalPurchased = (id: string) => {
+    setData(prev => ({
+      ...prev,
+      goals: prev.goals.map(g => g.id === id ? { ...g, purchased: !g.purchased } : g),
+    }));
+  };
+  const removeGoal = (id: string) => {
+    setData(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
+  };
 
-  const totalIncome = currentMonthData.income +
-    (currentMonthData.extraIncomes || []).reduce((a, c) => a + Number(c.value), 0);
+  // Computed Entries (Entradas)
+  const computedEntries: LedgerEntry[] = useMemo(() => {
+    const entries: LedgerEntry[] = [];
+    if (currentMonthData.income > 0) {
+      entries.push({ id: 'salary', date: monthKey, description: 'Salário', value: currentMonthData.income, source: 'salary' });
+    }
+    (currentMonthData.extraIncomes || []).forEach(ei => {
+      if (ei.value > 0) {
+        entries.push({ id: `ei-${ei.id}`, date: monthKey, description: ei.description || 'Renda Extra', value: Number(ei.value), source: 'extra-income' });
+      }
+    });
+    (currentMonthData.investments || []).filter(i => i.action === 'withdraw').forEach(inv => {
+      entries.push({ id: `inv-${inv.id}`, date: inv.date, description: `Resgate ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-withdraw' });
+    });
+    return entries;
+  }, [currentMonthData, monthKey]);
 
+  // Computed Exits (Saídas)
+  const computedExits: LedgerEntry[] = useMemo(() => {
+    const exits: LedgerEntry[] = [];
+    currentMonthData.variableExpenses.filter(e => e.paid).forEach(e => {
+      exits.push({ id: `exp-${e.id}`, date: monthKey, description: e.name || 'Despesa', value: Number(e.value), source: 'expense' });
+    });
+    currentMonthData.cardBills.filter(c => c.paid).forEach(c => {
+      exits.push({ id: `card-${c.id}`, date: monthKey, description: c.name || 'Cartão', value: Number(c.value), source: 'card' });
+    });
+    (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).forEach(e => {
+      exits.push({ id: `ext-${e.id}`, date: monthKey, description: e.name || 'Despesa Extra', value: Number(e.value), source: 'extraordinary' });
+    });
+    (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => {
+      exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit' });
+    });
+    return exits;
+  }, [currentMonthData, monthKey]);
+
+  const totalIncome = computedEntries.reduce((a, c) => a + c.value, 0);
+  const totalExpenses = computedExits.reduce((a, c) => a + c.value, 0);
   const balance = totalIncome - totalExpenses;
+
+  // All investments across all months (for portfolio page)
+  const allInvestments = useMemo(() => {
+    return Object.entries(data.monthlyData).flatMap(([, m]) => m.investments || []);
+  }, [data.monthlyData]);
 
   return {
     currentDate,
@@ -195,6 +247,9 @@ export function useLedgerData() {
     addInvestment, removeInvestment,
     activeInstallments, getInstallmentNumber,
     addInstallment, toggleInstallmentPaid, removeInstallment,
+    addGoal, toggleGoalPurchased, removeGoal,
+    computedEntries, computedExits,
     totalExpenses, totalIncome, balance,
+    allInvestments,
   };
 }

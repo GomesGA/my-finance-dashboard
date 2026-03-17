@@ -24,6 +24,22 @@ export interface Investment {
   description: string;
   value: number;
   date: string; // monthKey
+  action: 'deposit' | 'withdraw';
+}
+
+export interface Goal {
+  id: string;
+  name: string;
+  targetValue: number;
+  purchased: boolean;
+}
+
+export interface LedgerEntry {
+  id: string;
+  date: string;
+  description: string;
+  value: number;
+  source: string;
 }
 
 export interface MonthData {
@@ -47,6 +63,7 @@ export interface Installment {
 export interface LedgerData {
   monthlyData: Record<string, MonthData>;
   installments: Installment[];
+  goals: Goal[];
 }
 
 export const emptyMonthData: MonthData = {

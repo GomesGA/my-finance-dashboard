@@ -9,11 +9,10 @@ interface Props {
   monthKey: string;
   getNumber: (inst: Installment) => number;
   onAdd: (name: string, value: number, total: number) => void;
-  onTogglePaid: (id: string) => void;
   onRemove: (id: string) => void;
 }
 
-export function InstallmentsSection({ installments, monthKey, getNumber, onAdd, onTogglePaid, onRemove }: Props) {
+export function InstallmentsSection({ installments, monthKey, getNumber, onAdd, onRemove }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', value: '', total: '' });
 
@@ -28,17 +27,19 @@ export function InstallmentsSection({ installments, monthKey, getNumber, onAdd, 
   return (
     <section className="ledger-card p-6">
       <div className="flex justify-between items-center mb-5">
-        <h2 className="font-semibold flex items-center gap-2 text-foreground">
-          <ShoppingBag size={18} className="text-muted-foreground" />
-          Compras Parceladas
-        </h2>
+        <div>
+          <h2 className="font-semibold flex items-center gap-2 text-foreground">
+            <ShoppingBag size={18} className="text-muted-foreground" />
+            Compras Parceladas
+          </h2>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Apenas visualização — não afeta o saldo</p>
+        </div>
         <button onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1">
           <Plus size={14} />
           Nova Compra
         </button>
       </div>
 
-      {/* Modal-like inline form */}
       <AnimatePresence>
         {showForm && (
           <motion.form
@@ -65,25 +66,13 @@ export function InstallmentsSection({ installments, monthKey, getNumber, onAdd, 
             <div className="grid grid-cols-2 gap-3">
               <div className="relative">
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
-                <input
-                  type="number"
-                  placeholder="Valor da parcela"
-                  className="ledger-input w-full font-mono pl-7"
-                  value={form.value}
-                  onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
-                />
+                <input type="number" placeholder="Valor da parcela" className="ledger-input w-full font-mono pl-7"
+                  value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} />
               </div>
-              <input
-                type="number"
-                placeholder="Nº de parcelas"
-                className="ledger-input w-full"
-                value={form.total}
-                onChange={e => setForm(f => ({ ...f, total: e.target.value }))}
-              />
+              <input type="number" placeholder="Nº de parcelas" className="ledger-input w-full"
+                value={form.total} onChange={e => setForm(f => ({ ...f, total: e.target.value }))} />
             </div>
-            <button type="submit" className="ledger-btn-primary w-full text-center">
-              Confirmar
-            </button>
+            <button type="submit" className="ledger-btn-primary w-full text-center">Confirmar</button>
           </motion.form>
         )}
       </AnimatePresence>
@@ -92,7 +81,6 @@ export function InstallmentsSection({ installments, monthKey, getNumber, onAdd, 
         <AnimatePresence initial={false}>
           {installments.map(inst => {
             const num = getNumber(inst);
-            const isPaid = inst.paidMonths.includes(monthKey);
             return (
               <motion.div
                 key={inst.id}
@@ -101,30 +89,18 @@ export function InstallmentsSection({ installments, monthKey, getNumber, onAdd, 
                 exit={{ opacity: 0, height: 0 }}
                 className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border group"
               >
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={isPaid}
-                    onChange={() => onTogglePaid(inst.id)}
-                    className="ledger-checkbox"
-                  />
-                  <div>
-                    <p className={`text-sm font-medium ${isPaid ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-                      {inst.name}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-tight">
-                      Parcela {num} de {inst.totalMonths}
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{inst.name}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-tight">
+                    Parcela {num} de {inst.totalMonths}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-sm font-semibold text-foreground">
                     {formatCurrency(inst.monthlyValue)}
                   </span>
-                  <button
-                    onClick={() => onRemove(inst.id)}
-                    className="p-1 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
+                  <button onClick={() => onRemove(inst.id)}
+                    className="p-1 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
                     <Trash2 size={14} />
                   </button>
                 </div>
