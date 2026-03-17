@@ -10,30 +10,30 @@ interface Props {
 export function SummaryCards({ income, totalExpenses, balance }: Props) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div className="ledger-card p-5">
+      <div className="ledger-card p-5 overflow-hidden">
         <div className="flex items-center gap-2 mb-2">
-          <TrendingUp size={14} className="text-success" />
-          <span className="ledger-label !mb-0">Receita</span>
+          <TrendingUp size={14} className="text-success shrink-0" />
+          <span className="ledger-label !mb-0 truncate">Receita</span>
         </div>
-        <p className="text-2xl font-bold font-mono tracking-tighter text-success">
+        <p className="text-xl sm:text-2xl font-bold font-mono tracking-tighter text-success truncate">
           {formatCurrency(income)}
         </p>
       </div>
-      <div className="ledger-card p-5">
+      <div className="ledger-card p-5 overflow-hidden">
         <div className="flex items-center gap-2 mb-2">
-          <TrendingDown size={14} className="text-destructive" />
-          <span className="ledger-label !mb-0">Despesas (pagas)</span>
+          <TrendingDown size={14} className="text-destructive shrink-0" />
+          <span className="ledger-label !mb-0 truncate">Despesas</span>
         </div>
-        <p className="text-2xl font-bold font-mono tracking-tighter text-destructive">
+        <p className="text-xl sm:text-2xl font-bold font-mono tracking-tighter text-destructive truncate">
           {formatCurrency(totalExpenses)}
         </p>
       </div>
-      <div className="ledger-card p-5">
+      <div className="ledger-card p-5 overflow-hidden">
         <div className="flex items-center gap-2 mb-2">
-          <Wallet size={14} className="text-primary" />
-          <span className="ledger-label !mb-0">Saldo</span>
+          <Wallet size={14} className="text-primary shrink-0" />
+          <span className="ledger-label !mb-0 truncate">Saldo</span>
         </div>
-        <p className={`text-2xl font-bold font-mono tracking-tighter ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
+        <p className={`text-xl sm:text-2xl font-bold font-mono tracking-tighter truncate ${balance >= 0 ? 'text-primary' : 'text-destructive'}`}>
           {formatCurrency(balance)}
         </p>
       </div>
