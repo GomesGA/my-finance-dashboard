@@ -3,6 +3,16 @@ export interface Expense {
   name: string;
   value: number;
   paid: boolean;
+  dueDay?: number; // day of month for due date
+}
+
+export interface RecurringExpense {
+  id: string;
+  name: string;
+  value: number;
+  dueDay: number;
+  startMonth: string; // monthKey when created (e.g. "2026-01")
+  endMonth?: string;  // monthKey when soft-deleted (exclusive: hidden from this month onward)
 }
 
 export interface CardBill {
@@ -10,6 +20,7 @@ export interface CardBill {
   name: string;
   value: number;
   paid: boolean;
+  dueDay?: number;
 }
 
 export interface ExtraIncome {
@@ -42,6 +53,13 @@ export interface LedgerEntry {
   source: string;
 }
 
+export interface ManualEntry {
+  id: string;
+  date: string; // full date YYYY-MM-DD
+  description: string;
+  value: number;
+}
+
 export interface MonthData {
   income: number;
   variableExpenses: Expense[];
@@ -49,6 +67,12 @@ export interface MonthData {
   extraIncomes: ExtraIncome[];
   extraordinaryExpenses: Expense[];
   investments: Investment[];
+  manualEntries: ManualEntry[];
+  manualExits: ManualEntry[];
+  /** Per-month paid state for recurring expenses, keyed by recurring expense id */
+  recurringPaidState: Record<string, boolean>;
+  /** Per-month value overrides for recurring expenses */
+  recurringValueOverrides: Record<string, number>;
 }
 
 export interface Installment {
@@ -64,6 +88,7 @@ export interface LedgerData {
   monthlyData: Record<string, MonthData>;
   installments: Installment[];
   goals: Goal[];
+  recurringExpenses: RecurringExpense[];
 }
 
 export const emptyMonthData: MonthData = {
@@ -73,4 +98,8 @@ export const emptyMonthData: MonthData = {
   extraIncomes: [],
   extraordinaryExpenses: [],
   investments: [],
+  manualEntries: [],
+  manualExits: [],
+  recurringPaidState: {},
+  recurringValueOverrides: {},
 };
