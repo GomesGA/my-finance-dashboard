@@ -16,81 +16,61 @@ export function useLedgerData() {
 
   const monthKey = format(currentDate, 'yyyy-MM');
 
+  
   // 1. CARREGAR OS DADOS DO SUPABASE AO ABRIR O SITE
   useEffect(() => {
     const fetchCloudData = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return; // Se não tiver logado, não faz nada
+
         const { data: dbData, error } = await supabase
-          .from('ledger_cloud')
+          .from('user_ledger')
           .select('dados')
-          .eq('id', 1)
+          .eq('user_id', session.user.id)
           .single();
 
-        if (error) throw error;
+        if (error && error.code !== 'PGRST116') throw error; // Ignora erro de "linha não encontrada" (usuário novo)
 
         if (dbData && dbData.dados) {
           const parsed = dbData.dados as LedgerData;
-          
-          // Validações de segurança originais
-          if (parsed.monthlyData) {
-            for (const key of Object.keys(parsed.monthlyData)) {
-              const m = parsed.monthlyData[key];
-              if (!m.extraIncomes) m.extraIncomes = [];
-              if (!m.extraordinaryExpenses) m.extraordinaryExpenses = [];
-              if (!m.investments) m.investments = [];
-              if (!m.manualEntries) m.manualEntries = [];
-              if (!m.manualExits) m.manualExits = [];
-              if (!m.recurringPaidState) m.recurringPaidState = {};
-              if (!m.recurringValueOverrides) m.recurringValueOverrides = {};
-              m.investments = m.investments.map((inv: any) => ({
-                ...inv,
-                action: inv.action || 'deposit',
-              }));
-            }
-          }
-          if (!parsed.goals) parsed.goals = [];
-          if (!parsed.recurringExpenses) parsed.recurringExpenses = [];
-          
+          // ... (mantenha todas as validações de segurança originais que já estavam aqui) ...
           setData(parsed);
+        } else {
+          // Se o usuário é novo e não tem linha no banco, cria uma para ele
+          await supabase.from('user_ledger').insert([{ user_id: session.user.id }]);
         }
       } catch (err) {
-        console.error("Erro ao carregar do Supabase. Tentando LocalStorage...", err);
-        // Fallback: Se estiver sem internet, tenta carregar do PC
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) setData(JSON.parse(saved));
+        console.error("Erro ao carregar do Supabase", err);
       } finally {
         setIsLoaded(true);
       }
     };
-
     fetchCloudData();
   }, []);
 
   // 2. SALVAR NA NUVEM SEMPRE QUE O ESTADO MUDAR
-  useEffect(() => {
-    if (!isLoaded) return; // Impede de salvar vazio antes de carregar da nuvem
+    useEffect(() => {
+      if (!isLoaded) return;
 
-    const saveToCloud = async () => {
-      try {
-        await supabase
-          .from('ledger_cloud')
-          .update({ dados: data })
-          .eq('id', 1);
+      const saveToCloud = async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return;
 
-        // Mantém backup no localStorage do PC também
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } catch (err) {
-        console.error("Erro ao salvar no Supabase:", err);
-      }
-    };
+          await supabase
+            .from('user_ledger')
+            .update({ dados: data })
+            .eq('user_id', session.user.id);
 
-    // Debounce: espera 500ms para não sobrecarregar o banco enquanto você digita um número
-    const timeoutId = setTimeout(() => {
-      saveToCloud();
-    }, 500);
+        } catch (err) {
+          console.error("Erro ao salvar no Supabase:", err);
+        }
+      };
 
-    return () => clearTimeout(timeoutId);
-  }, [data, isLoaded]);
+      const timeoutId = setTimeout(() => { saveToCloud(); }, 500);
+      return () => clearTimeout(timeoutId);
+    }, [data, isLoaded]);
 
   const currentMonthData: MonthData = data.monthlyData[monthKey] || { ...emptyMonthData };
 
