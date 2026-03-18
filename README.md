@@ -1,73 +1,37 @@
-# Welcome to your Lovable project
+# 🏦 Ledger Financeiro
 
-## Project info
+Um aplicativo web moderno e responsivo para controlo financeiro pessoal. Construído com foco na precisão matemática através do modelo de "Livro-razão" (Ledger), onde o saldo é estritamente calculado através de **Entradas** e **Saídas**.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+https://my-finance-dashboard-mocha.vercel.app/
 
-## How can I edit this code?
+## ✨ Funcionalidades
 
-There are several ways of editing your application.
+* **Autenticação Segura:** Sistema multi-utilizador com login e registo. Cada utilizador tem o seu próprio espaço privado no banco de dados.
+* **Modelo Ledger (Livro-razão):** A verdadeira fonte do saldo. Todo o dinheiro que entra ou sai é registado nestes dois blocos centrais, evitando duplicação de despesas.
+* **Navegação Temporal:** Filtre todo o seu painel por Mês e Ano.
+* **Despesas Recorrentes Inteligentes:** Adicione uma despesa e ela propagar-se-á para os meses seguintes. Funcionalidade de "Soft Delete" (cancelar a despesa num mês não a apaga do histórico passado).
+* **Gestão de Faturas e Parcelas:** Controle cartões de crédito e acompanhe as suas compras parceladas ao longo do tempo.
+* **Módulo de Investimentos:** Registe aportes (Saídas) e resgates (Entradas) de ativos como CDB e Bitcoin.
+* **Módulo de Metas:** Acompanhe os seus desejos de compra e o valor alvo.
+* **Dark Mode:** Suporte nativo para tema claro e escuro.
 
-**Use Lovable**
+## 🛠️ Tecnologias Utilizadas
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+**Front-end:**
+* [React](https://reactjs.org/) (com Hooks e Componentes Funcionais)
+* [Vite](https://vitejs.dev/) (Bundler rápido)
+* [Tailwind CSS](https://tailwindcss.com/) (Estilização utilitária e responsiva)
+* [Shadcn UI](https://ui.shadcn.com/) / Radix UI (Componentes acessíveis)
+* [Lucide React](https://lucide.dev/) (Ícones)
+* [Date-fns](https://date-fns.org/) (Manipulação de datas)
 
-Changes made via Lovable will be committed automatically to this repo.
+**Back-end & Infraestrutura:**
+* [Supabase](https://supabase.com/) (Banco de Dados PostgreSQL e Autenticação)
+* [Vercel](https://vercel.com/) (Hospedagem e CI/CD)
 
-**Use your preferred IDE**
+## 🚀 Como executar o projeto localmente
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### 1. Clonar o repositório
+```bash
+git clone [https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git](https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git)
+cd SEU_REPOSITORIO
