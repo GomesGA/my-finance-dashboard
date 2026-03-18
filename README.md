@@ -79,7 +79,7 @@ A aplicação estará disponível em http://localhost:5173 ou http://localhost:8
 
 ## ☁️ Hospedagem (Deploy)
 Este projeto está configurado para ser hospedado facilmente na Vercel.
-*Conecte o seu repositório GitHub à Vercel.
-*Nas configurações do projeto na Vercel, adicione as mesmas variáveis de ambiente (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).
-*Clique em Deploy. Qualquer novo git push irá atualizar o site automaticamente.
+* Conecte o seu repositório GitHub à Vercel.
+* Nas configurações do projeto na Vercel, adicione as mesmas variáveis de ambiente (VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY).
+* Clique em Deploy. Qualquer novo git push irá atualizar o site automaticamente.
 
