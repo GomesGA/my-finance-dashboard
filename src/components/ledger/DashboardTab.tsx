@@ -45,7 +45,8 @@ export function DashboardTab({ ledger }: Props) {
           entries={ledger.computedEntries}
           type="income"
           onAddManual={ledger.addManualEntry}
-          onRemoveManual={ledger.removeManualEntry}
+          onRemoveEntry={ledger.removeLedgerEntry}
+          onEditEntry={ledger.editLedgerEntry}
         />
         
         <LedgerTable
@@ -53,7 +54,8 @@ export function DashboardTab({ ledger }: Props) {
           entries={ledger.computedExits}
           type="expense"
           onAddManual={ledger.addManualExit}
-          onRemoveManual={ledger.removeManualExit}
+          onRemoveEntry={ledger.removeLedgerEntry}
+          onEditEntry={ledger.editLedgerEntry}
         />
       </div>
 

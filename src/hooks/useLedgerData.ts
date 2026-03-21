@@ -322,85 +322,78 @@ export function useLedgerData() {
     setData(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
   };
 
+  const updateRecurringDate = (id: string, date: string) => {
+    updateMonthData(m => ({ ...m, recurringDateOverrides: { ...(m.recurringDateOverrides || {}), [id]: date } }));
+  };
+
+  const removeLedgerEntry = (idStr: string, source: string) => {
+    const id = idStr.replace(/^[a-z]+-/, ''); 
+    if (source === 'manual-entry') removeManualEntry(id);
+    else if (source === 'manual-exit') removeManualExit(id);
+    else if (source === 'card') updateCard(id, { paid: false });
+    else if (source === 'recurring') toggleRecurringPaid(id);
+    else if (source === 'salary') setIncome(0);
+  };
+
+  const editLedgerEntry = (idStr: string, source: string, date: string, description: string, value: number) => {
+    const id = idStr.replace(/^[a-z]+-/, '');
+    if (source === 'manual-entry') {
+      updateMonthData(m => ({ ...m, manualEntries: (m.manualEntries||[]).map(e => e.id === id ? { ...e, date, description, value } : e) }));
+    } else if (source === 'manual-exit') {
+      updateMonthData(m => ({ ...m, manualExits: (m.manualExits||[]).map(e => e.id === id ? { ...e, date, description, value } : e) }));
+    } else if (source === 'card') {
+      updateCard(id, { name: description, value, paymentDate: date });
+    } else if (source === 'recurring') {
+      updateRecurringValue(id, value);
+      updateRecurringDate(id, date);
+      setData(prev => ({ ...prev, recurringExpenses: prev.recurringExpenses.map(re => re.id === id ? { ...re, name: description } : re) }));
+    } else if (source === 'salary') {
+      setIncome(value);
+    }
+  };
+
+  // Helper de Ordenação
+  const sortEntriesByDate = (a: LedgerEntry, b: LedgerEntry) => new Date(a.date).getTime() - new Date(b.date).getTime();
+
   // Computed Entries
   const computedEntries: LedgerEntry[] = useMemo(() => {
     const entries: LedgerEntry[] = [];
-    if (currentMonthData.income > 0) {
-      entries.push({ id: 'salary', date: monthKey, description: 'Salário', value: currentMonthData.income, source: 'salary' });
-    }
-    (currentMonthData.extraIncomes || []).forEach(ei => {
-      if (ei.value > 0) {
-        entries.push({ id: `ei-${ei.id}`, date: monthKey, description: ei.description || 'Renda Extra', value: Number(ei.value), source: 'extra-income' });
-      }
-    });
-    (currentMonthData.investments || []).filter(i => i.action === 'withdraw').forEach(inv => {
-      entries.push({ id: `inv-${inv.id}`, date: inv.date, description: `Resgate ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-withdraw' });
-    });
-    (currentMonthData.manualEntries || []).forEach(me => {
-      entries.push({ id: `me-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-entry' });
-    });
-    return entries;
+    if (currentMonthData.income > 0) entries.push({ id: 'salary', date: `${monthKey}-01`, description: 'Salário', value: currentMonthData.income, source: 'salary' });
+    (currentMonthData.manualEntries || []).forEach(me => entries.push({ id: `me-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-entry' }));
+    return entries.sort(sortEntriesByDate);
   }, [currentMonthData, monthKey]);
 
   // Computed Exits
   const computedExits: LedgerEntry[] = useMemo(() => {
     const exits: LedgerEntry[] = [];
-    // Recurring expenses (paid)
     activeRecurringExpenses.forEach(re => {
       if (currentMonthData.recurringPaidState[re.id]) {
         const val = currentMonthData.recurringValueOverrides[re.id] ?? re.value;
-        exits.push({ id: `rec-${re.id}`, date: `${monthKey}-${String(re.dueDay).padStart(2, '0')}`, description: re.name, value: Number(val), source: 'recurring' });
+        const pDate = currentMonthData.recurringDateOverrides?.[re.id] || `${monthKey}-${String(re.dueDay).padStart(2, '0')}`;
+        exits.push({ id: `rec-${re.id}`, date: pDate, description: re.name, value: Number(val), source: 'recurring' });
       }
     });
-    // Card bills (paid)
     currentMonthData.cardBills.filter(c => c.paid).forEach(c => {
-      exits.push({ id: `card-${c.id}`, date: monthKey, description: c.name || 'Cartão', value: Number(c.value), source: 'card' });
+      const pDate = c.paymentDate || `${monthKey}-${String(c.dueDay || 1).padStart(2, '0')}`;
+      exits.push({ id: `card-${c.id}`, date: pDate, description: c.name || 'Cartão', value: Number(c.value), source: 'card' });
     });
-    // Extraordinary expenses (paid)
-    (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).forEach(e => {
-      exits.push({ id: `ext-${e.id}`, date: monthKey, description: e.name || 'Despesa Extra', value: Number(e.value), source: 'extraordinary' });
-    });
-    // Investment deposits
-    (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => {
-      exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit' });
-    });
-    // Manual exits
-    (currentMonthData.manualExits || []).forEach(me => {
-      exits.push({ id: `mx-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-exit' });
-    });
-    return exits;
+    (currentMonthData.manualExits || []).forEach(me => exits.push({ id: `mx-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-exit' }));
+    return exits.sort(sortEntriesByDate); // Ordenação cronológica garantida!
   }, [currentMonthData, monthKey, activeRecurringExpenses]);
 
   const totalIncome = computedEntries.reduce((a, c) => a + c.value, 0);
   const totalExpenses = computedExits.reduce((a, c) => a + c.value, 0);
   const balance = totalIncome - totalExpenses;
 
-  const allInvestments = useMemo(() => {
-    return Object.entries(data.monthlyData).flatMap(([, m]) => m.investments || []);
-  }, [data.monthlyData]);
+  const allInvestments = useMemo(() => Object.entries(data.monthlyData).flatMap(([, m]) => m.investments || []), [data.monthlyData]);
 
   return {
-    currentDate,
-    monthKey,
-    data,
-    setCurrentDate,
-    goNextMonth: () => setCurrentDate(d => addMonths(d, 1)),
-    goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)),
-    currentMonthData,
-    setIncome,
-    addExpense, updateExpense, removeExpense,
-    addCard, updateCard, removeCard,
-    addExtraIncome, updateExtraIncome, removeExtraIncome,
-    addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense,
-    activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense,
-    toggleRecurringPaid, updateRecurringValue,
-    addInvestment, removeInvestment,
-    addManualEntry, removeManualEntry, addManualExit, removeManualExit,
-    activeInstallments, getInstallmentNumber,
-    addInstallment, toggleInstallmentPaid, removeInstallment,
-    addGoal, toggleGoalPurchased, removeGoal,
-    computedEntries, computedExits,
-    totalExpenses, totalIncome, balance,
-    allInvestments,
+    currentDate, monthKey, data, setCurrentDate, goNextMonth: () => setCurrentDate(d => addMonths(d, 1)), goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)),
+    currentMonthData, setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, addExtraIncome, updateExtraIncome, removeExtraIncome,
+    addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense, activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense,
+    toggleRecurringPaid, updateRecurringValue, addInvestment, removeInvestment, addManualEntry, removeManualEntry, addManualExit, removeManualExit,
+    activeInstallments, getInstallmentNumber, addInstallment, toggleInstallmentPaid, removeInstallment, addGoal, toggleGoalPurchased, removeGoal,
+    computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments,
+    removeLedgerEntry, editLedgerEntry // Novas funções exportadas
   };
 }
