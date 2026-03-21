@@ -43,24 +43,18 @@ export function useLedgerData() {
           if (!parsed.recurringExpenses) parsed.recurringExpenses = [];
           setData(parsed);
         }
-      } catch (err) {
-        console.error("Erro ao carregar do Supabase", err);
-      } finally {
-        isFetchingRef.current = false;
-        setIsLoaded(true);
-      }
+      } catch (err) { console.error("Erro ao carregar do Supabase", err); } 
+      finally { isFetchingRef.current = false; setIsLoaded(true); }
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) fetchCloudData(session.user.id);
-      else setIsLoaded(true);
+      if (session) fetchCloudData(session.user.id); else setIsLoaded(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session && event === 'SIGNED_IN') fetchCloudData(session.user.id);
       else if (!session) setData(getInitialData());
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -71,11 +65,9 @@ export function useLedgerData() {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
         await supabase.from('user_ledger').upsert({ user_id: session.user.id, dados: data }, { onConflict: 'user_id' });
-      } catch (err) {
-        console.error("Erro ao salvar no Supabase:", err);
-      }
+      } catch (err) { console.error("Erro ao salvar:", err); }
     };
-    const timeoutId = setTimeout(() => { saveToCloud(); }, 500);
+    const timeoutId = setTimeout(() => saveToCloud(), 500);
     return () => clearTimeout(timeoutId);
   }, [data, isLoaded]);
 
@@ -88,52 +80,35 @@ export function useLedgerData() {
     }));
   }, [monthKey]);
 
-  // Income com suporte a Data
   const setIncome = (val: number, date?: string) => updateMonthData(m => ({ ...m, income: val, incomeDate: date }));
 
   const addExpense = () => {
-    const item: Expense = { id: crypto.randomUUID(), name: '', value: 0, paid: false };
+    const item: Expense = { id: crypto.randomUUID(), name: '', value: 0, paid: false, createdAt: Date.now() };
     updateMonthData(m => ({ ...m, variableExpenses: [...m.variableExpenses, item] }));
   };
-  const updateExpense = (id: string, patch: Partial<Expense>) => {
-    updateMonthData(m => ({ ...m, variableExpenses: m.variableExpenses.map(e => e.id === id ? { ...e, ...patch } : e) }));
-  };
-  const removeExpense = (id: string) => {
-    updateMonthData(m => ({ ...m, variableExpenses: m.variableExpenses.filter(e => e.id !== id) }));
-  };
+  const updateExpense = (id: string, patch: Partial<Expense>) => updateMonthData(m => ({ ...m, variableExpenses: m.variableExpenses.map(e => e.id === id ? { ...e, ...patch } : e) }));
+  const removeExpense = (id: string) => updateMonthData(m => ({ ...m, variableExpenses: m.variableExpenses.filter(e => e.id !== id) }));
 
   const addCard = () => {
-    const item: CardBill = { id: crypto.randomUUID(), name: '', value: 0, paid: false };
+    const item: CardBill = { id: crypto.randomUUID(), name: '', value: 0, paid: false, createdAt: Date.now() };
     updateMonthData(m => ({ ...m, cardBills: [...m.cardBills, item] }));
   };
-  const updateCard = (id: string, patch: Partial<CardBill>) => {
-    updateMonthData(m => ({ ...m, cardBills: m.cardBills.map(c => c.id === id ? { ...c, ...patch } : c) }));
-  };
-  const removeCard = (id: string) => {
-    updateMonthData(m => ({ ...m, cardBills: m.cardBills.filter(c => c.id !== id) }));
-  };
+  const updateCard = (id: string, patch: Partial<CardBill>) => updateMonthData(m => ({ ...m, cardBills: m.cardBills.map(c => c.id === id ? { ...c, ...patch } : c) }));
+  const removeCard = (id: string) => updateMonthData(m => ({ ...m, cardBills: m.cardBills.filter(c => c.id !== id) }));
 
   const addExtraIncome = () => {
-    const item: ExtraIncome = { id: crypto.randomUUID(), description: '', value: 0 };
+    const item: ExtraIncome = { id: crypto.randomUUID(), description: '', value: 0, createdAt: Date.now() };
     updateMonthData(m => ({ ...m, extraIncomes: [...(m.extraIncomes || []), item] }));
   };
-  const updateExtraIncome = (id: string, patch: Partial<ExtraIncome>) => {
-    updateMonthData(m => ({ ...m, extraIncomes: (m.extraIncomes || []).map(e => e.id === id ? { ...e, ...patch } : e) }));
-  };
-  const removeExtraIncome = (id: string) => {
-    updateMonthData(m => ({ ...m, extraIncomes: (m.extraIncomes || []).filter(e => e.id !== id) }));
-  };
+  const updateExtraIncome = (id: string, patch: Partial<ExtraIncome>) => updateMonthData(m => ({ ...m, extraIncomes: (m.extraIncomes || []).map(e => e.id === id ? { ...e, ...patch } : e) }));
+  const removeExtraIncome = (id: string) => updateMonthData(m => ({ ...m, extraIncomes: (m.extraIncomes || []).filter(e => e.id !== id) }));
 
   const addExtraordinaryExpense = () => {
-    const item: Expense = { id: crypto.randomUUID(), name: '', value: 0, paid: false };
+    const item: Expense = { id: crypto.randomUUID(), name: '', value: 0, paid: false, createdAt: Date.now() };
     updateMonthData(m => ({ ...m, extraordinaryExpenses: [...(m.extraordinaryExpenses || []), item] }));
   };
-  const updateExtraordinaryExpense = (id: string, patch: Partial<Expense>) => {
-    updateMonthData(m => ({ ...m, extraordinaryExpenses: (m.extraordinaryExpenses || []).map(e => e.id === id ? { ...e, ...patch } : e) }));
-  };
-  const removeExtraordinaryExpense = (id: string) => {
-    updateMonthData(m => ({ ...m, extraordinaryExpenses: (m.extraordinaryExpenses || []).filter(e => e.id !== id) }));
-  };
+  const updateExtraordinaryExpense = (id: string, patch: Partial<Expense>) => updateMonthData(m => ({ ...m, extraordinaryExpenses: (m.extraordinaryExpenses || []).map(e => e.id === id ? { ...e, ...patch } : e) }));
+  const removeExtraordinaryExpense = (id: string) => updateMonthData(m => ({ ...m, extraordinaryExpenses: (m.extraordinaryExpenses || []).filter(e => e.id !== id) }));
 
   const activeRecurringExpenses = useMemo(() => {
     return data.recurringExpenses.filter(re => {
@@ -144,90 +119,55 @@ export function useLedgerData() {
   }, [data.recurringExpenses, monthKey]);
 
   const addRecurringExpense = (name: string, value: number, dueDay: number) => {
-    const re: RecurringExpense = { id: crypto.randomUUID(), name, value, dueDay, startMonth: monthKey };
+    const re: RecurringExpense = { id: crypto.randomUUID(), name, value, dueDay, startMonth: monthKey, createdAt: Date.now() };
     setData(prev => ({ ...prev, recurringExpenses: [...prev.recurringExpenses, re] }));
   };
-  const softDeleteRecurringExpense = (id: string) => {
-    setData(prev => ({ ...prev, recurringExpenses: prev.recurringExpenses.map(re => re.id === id ? { ...re, endMonth: monthKey } : re) }));
-  };
-  const toggleRecurringPaid = (id: string) => {
-    updateMonthData(m => ({ ...m, recurringPaidState: { ...m.recurringPaidState, [id]: !m.recurringPaidState[id] } }));
-  };
-  const updateRecurringValue = (id: string, value: number) => {
-    updateMonthData(m => ({ ...m, recurringValueOverrides: { ...m.recurringValueOverrides, [id]: value } }));
-  };
-  const updateRecurringDate = (id: string, date: string) => {
-    updateMonthData(m => ({ ...m, recurringDateOverrides: { ...(m.recurringDateOverrides || {}), [id]: date } }));
-  };
+  const softDeleteRecurringExpense = (id: string) => setData(prev => ({ ...prev, recurringExpenses: prev.recurringExpenses.map(re => re.id === id ? { ...re, endMonth: monthKey } : re) }));
+  const toggleRecurringPaid = (id: string) => updateMonthData(m => ({ ...m, recurringPaidState: { ...m.recurringPaidState, [id]: !m.recurringPaidState[id] } }));
+  const updateRecurringValue = (id: string, value: number) => updateMonthData(m => ({ ...m, recurringValueOverrides: { ...m.recurringValueOverrides, [id]: value } }));
+  const updateRecurringDate = (id: string, date: string) => updateMonthData(m => ({ ...m, recurringDateOverrides: { ...(m.recurringDateOverrides || {}), [id]: date } }));
 
   const addInvestment = (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw') => {
-    const item: Investment = { id: crypto.randomUUID(), type, description, value, date: monthKey, action };
+    const item: Investment = { id: crypto.randomUUID(), type, description, value, date: monthKey, action, createdAt: Date.now() };
     updateMonthData(m => ({ ...m, investments: [...(m.investments || []), item] }));
   };
-  const removeInvestment = (id: string) => {
-    updateMonthData(m => ({ ...m, investments: (m.investments || []).filter(i => i.id !== id) }));
-  };
+  const removeInvestment = (id: string) => updateMonthData(m => ({ ...m, investments: (m.investments || []).filter(i => i.id !== id) }));
 
   const addManualEntry = (date: string, description: string, value: number) => {
-    const item: ManualEntry = { id: crypto.randomUUID(), date, description, value };
+    const item: ManualEntry = { id: crypto.randomUUID(), date, description, value, createdAt: Date.now() };
     updateMonthData(m => ({ ...m, manualEntries: [...(m.manualEntries || []), item] }));
   };
-  const removeManualEntry = (id: string) => {
-    updateMonthData(m => ({ ...m, manualEntries: (m.manualEntries || []).filter(e => e.id !== id) }));
-  };
+  const removeManualEntry = (id: string) => updateMonthData(m => ({ ...m, manualEntries: (m.manualEntries || []).filter(e => e.id !== id) }));
+  
   const addManualExit = (date: string, description: string, value: number) => {
-    const item: ManualEntry = { id: crypto.randomUUID(), date, description, value };
+    const item: ManualEntry = { id: crypto.randomUUID(), date, description, value, createdAt: Date.now() };
     updateMonthData(m => ({ ...m, manualExits: [...(m.manualExits || []), item] }));
   };
-  const removeManualExit = (id: string) => {
-    updateMonthData(m => ({ ...m, manualExits: (m.manualExits || []).filter(e => e.id !== id) }));
-  };
+  const removeManualExit = (id: string) => updateMonthData(m => ({ ...m, manualExits: (m.manualExits || []).filter(e => e.id !== id) }));
 
   const activeInstallments = data.installments.filter(inst => {
-    const startParts = inst.startDate.split('-');
-    const startDate = new Date(Number(startParts[0]), Number(startParts[1]) - 1, 1);
+    const startDate = new Date(Number(inst.startDate.split('-')[0]), Number(inst.startDate.split('-')[1]) - 1, 1);
     const currentMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     const diff = differenceInMonths(currentMonthDate, startDate);
     return diff >= 0 && diff < inst.totalMonths;
   });
 
-  const getInstallmentNumber = (inst: Installment): number => {
-    const startParts = inst.startDate.split('-');
-    const startDate = new Date(Number(startParts[0]), Number(startParts[1]) - 1, 1);
-    const currentMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    return differenceInMonths(currentMonthDate, startDate) + 1;
-  };
+  const getInstallmentNumber = (inst: Installment): number => differenceInMonths(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), new Date(Number(inst.startDate.split('-')[0]), Number(inst.startDate.split('-')[1]) - 1, 1)) + 1;
 
   const addInstallment = (name: string, monthlyValue: number, totalMonths: number) => {
-    const inst: Installment = { id: crypto.randomUUID(), name, monthlyValue, totalMonths, startDate: monthKey, paidMonths: [] };
+    const inst: Installment = { id: crypto.randomUUID(), name, monthlyValue, totalMonths, startDate: monthKey, paidMonths: [], createdAt: Date.now() };
     setData(prev => ({ ...prev, installments: [...prev.installments, inst] }));
   };
-  const toggleInstallmentPaid = (id: string) => {
-    setData(prev => ({
-      ...prev,
-      installments: prev.installments.map(inst => {
-        if (inst.id !== id) return inst;
-        const isPaid = inst.paidMonths.includes(monthKey);
-        return { ...inst, paidMonths: isPaid ? inst.paidMonths.filter(m => m !== monthKey) : [...inst.paidMonths, monthKey] };
-      }),
-    }));
-  };
-  const removeInstallment = (id: string) => {
-    setData(prev => ({ ...prev, installments: prev.installments.filter(i => i.id !== id) }));
-  };
+  const toggleInstallmentPaid = (id: string) => setData(prev => ({ ...prev, installments: prev.installments.map(inst => inst.id === id ? { ...inst, paidMonths: inst.paidMonths.includes(monthKey) ? inst.paidMonths.filter(m => m !== monthKey) : [...inst.paidMonths, monthKey] } : inst) }));
+  const removeInstallment = (id: string) => setData(prev => ({ ...prev, installments: prev.installments.filter(i => i.id !== id) }));
 
   const addGoal = (name: string, targetValue: number) => {
-    const goal: Goal = { id: crypto.randomUUID(), name, targetValue, purchased: false };
+    const goal: Goal = { id: crypto.randomUUID(), name, targetValue, purchased: false, createdAt: Date.now() };
     setData(prev => ({ ...prev, goals: [...prev.goals, goal] }));
   };
-  const toggleGoalPurchased = (id: string) => {
-    setData(prev => ({ ...prev, goals: prev.goals.map(g => g.id === id ? { ...g, purchased: !g.purchased } : g) }));
-  };
-  const removeGoal = (id: string) => {
-    setData(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
-  };
+  const toggleGoalPurchased = (id: string) => setData(prev => ({ ...prev, goals: prev.goals.map(g => g.id === id ? { ...g, purchased: !g.purchased } : g) }));
+  const removeGoal = (id: string) => setData(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
 
-  // Lógica Avançada de Edição e Exclusão da Tabela
   const removeLedgerEntry = (idStr: string, source: string) => {
     const id = idStr.replace(/^[a-z]+-/, ''); 
     if (source === 'manual-entry') removeManualEntry(id);
@@ -242,81 +182,55 @@ export function useLedgerData() {
 
   const editLedgerEntry = (idStr: string, source: string, date: string, description: string, value: number) => {
     const id = idStr.replace(/^[a-z]+-/, '');
-    if (source === 'manual-entry') {
-      updateMonthData(m => ({ ...m, manualEntries: (m.manualEntries||[]).map(e => e.id === id ? { ...e, date, description, value } : e) }));
-    } else if (source === 'manual-exit') {
-      updateMonthData(m => ({ ...m, manualExits: (m.manualExits||[]).map(e => e.id === id ? { ...e, date, description, value } : e) }));
-    } else if (source === 'card') {
-      updateCard(id, { name: description, value, paymentDate: date });
-    } else if (source === 'recurring') {
+    if (source === 'manual-entry') updateMonthData(m => ({ ...m, manualEntries: (m.manualEntries||[]).map(e => e.id === id ? { ...e, date, description, value } : e) }));
+    else if (source === 'manual-exit') updateMonthData(m => ({ ...m, manualExits: (m.manualExits||[]).map(e => e.id === id ? { ...e, date, description, value } : e) }));
+    else if (source === 'card') updateCard(id, { name: description, value, paymentDate: date });
+    else if (source === 'recurring') {
       updateRecurringValue(id, value);
       updateRecurringDate(id, date);
       setData(prev => ({ ...prev, recurringExpenses: prev.recurringExpenses.map(re => re.id === id ? { ...re, name: description } : re) }));
-    } else if (source === 'salary') {
-      setIncome(value, date);
-    } else if (source === 'investment-deposit' || source === 'investment-withdraw') {
-      updateMonthData(m => ({ ...m, investments: (m.investments||[]).map(inv => inv.id === id ? { ...inv, date, description: description.replace(/^(Aporte|Resgate) (CDB|Bitcoin)( - )?/, ''), value } : inv) }));
-    }
+    } else if (source === 'salary') setIncome(value, date);
+    else if (source === 'investment-deposit' || source === 'investment-withdraw') updateMonthData(m => ({ ...m, investments: (m.investments||[]).map(inv => inv.id === id ? { ...inv, date, description: description.replace(/^(Aporte|Resgate) (CDB|Bitcoin)( - )?/, ''), value } : inv) }));
   };
 
-  const sortEntriesByDate = (a: LedgerEntry, b: LedgerEntry) => new Date(a.date).getTime() - new Date(b.date).getTime();
+  // A MAGIA DA FILA ACONTECE AQUI
+  const sortEntriesByDateAndQueue = (a: LedgerEntry, b: LedgerEntry) => {
+    const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (dateDiff !== 0) return dateDiff; // 1º Prioridade: A data mais antiga primeiro
+    return (a.createdAt || 0) - (b.createdAt || 0); // 2º Prioridade: O que foi adicionado primeiro fica acima (Fila)
+  };
 
   const computedEntries: LedgerEntry[] = useMemo(() => {
     const entries: LedgerEntry[] = [];
-    if (currentMonthData.income > 0) {
-      const sDate = currentMonthData.incomeDate || `${monthKey}-01`;
-      entries.push({ id: 'salary', date: sDate, description: 'Salário', value: currentMonthData.income, source: 'salary' });
-    }
-    (currentMonthData.extraIncomes || []).forEach(ei => {
-      if (ei.value > 0) entries.push({ id: `ei-${ei.id}`, date: `${monthKey}-01`, description: ei.description || 'Renda Extra', value: Number(ei.value), source: 'extra-income' });
-    });
-    (currentMonthData.investments || []).filter(i => i.action === 'withdraw').forEach(inv => {
-      entries.push({ id: `inv-${inv.id}`, date: inv.date, description: `Resgate ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-withdraw' });
-    });
-    (currentMonthData.manualEntries || []).forEach(me => {
-      entries.push({ id: `me-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-entry' });
-    });
-    return entries.sort(sortEntriesByDate);
+    if (currentMonthData.income > 0) entries.push({ id: 'salary', date: currentMonthData.incomeDate || `${monthKey}-01`, description: 'Salário', value: currentMonthData.income, source: 'salary', createdAt: 0 });
+    (currentMonthData.extraIncomes || []).forEach(ei => { if (ei.value > 0) entries.push({ id: `ei-${ei.id}`, date: `${monthKey}-01`, description: ei.description || 'Renda Extra', value: Number(ei.value), source: 'extra-income', createdAt: ei.createdAt }); });
+    (currentMonthData.investments || []).filter(i => i.action === 'withdraw').forEach(inv => entries.push({ id: `inv-${inv.id}`, date: inv.date, description: `Resgate ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-withdraw', createdAt: inv.createdAt }));
+    (currentMonthData.manualEntries || []).forEach(me => entries.push({ id: `me-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-entry', createdAt: me.createdAt }));
+    return entries.sort(sortEntriesByDateAndQueue);
   }, [currentMonthData, monthKey]);
 
   const computedExits: LedgerEntry[] = useMemo(() => {
     const exits: LedgerEntry[] = [];
     activeRecurringExpenses.forEach(re => {
       if (currentMonthData.recurringPaidState[re.id]) {
-        const val = currentMonthData.recurringValueOverrides[re.id] ?? re.value;
         const pDate = currentMonthData.recurringDateOverrides?.[re.id] || `${monthKey}-${String(re.dueDay).padStart(2, '0')}`;
-        exits.push({ id: `rec-${re.id}`, date: pDate, description: re.name, value: Number(val), source: 'recurring' });
+        exits.push({ id: `rec-${re.id}`, date: pDate, description: re.name, value: Number(currentMonthData.recurringValueOverrides[re.id] ?? re.value), source: 'recurring', createdAt: re.createdAt });
       }
     });
     currentMonthData.cardBills.filter(c => c.paid).forEach(c => {
       const pDate = c.paymentDate || `${monthKey}-${String(c.dueDay || 1).padStart(2, '0')}`;
-      exits.push({ id: `card-${c.id}`, date: pDate, description: c.name || 'Cartão', value: Number(c.value), source: 'card' });
+      exits.push({ id: `card-${c.id}`, date: pDate, description: c.name || 'Cartão', value: Number(c.value), source: 'card', createdAt: c.createdAt });
     });
-    (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).forEach(e => {
-      exits.push({ id: `ext-${e.id}`, date: `${monthKey}-01`, description: e.name || 'Despesa Extra', value: Number(e.value), source: 'extraordinary' });
-    });
-    (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => {
-      exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit' });
-    });
-    (currentMonthData.manualExits || []).forEach(me => {
-      exits.push({ id: `mx-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-exit' });
-    });
-    return exits.sort(sortEntriesByDate);
+    (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).forEach(e => exits.push({ id: `ext-${e.id}`, date: `${monthKey}-01`, description: e.name || 'Despesa Extra', value: Number(e.value), source: 'extraordinary', createdAt: e.createdAt }));
+    (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit', createdAt: inv.createdAt }));
+    (currentMonthData.manualExits || []).forEach(me => exits.push({ id: `mx-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-exit', createdAt: me.createdAt }));
+    return exits.sort(sortEntriesByDateAndQueue);
   }, [currentMonthData, monthKey, activeRecurringExpenses]);
 
   const totalIncome = computedEntries.reduce((a, c) => a + c.value, 0);
   const totalExpenses = computedExits.reduce((a, c) => a + c.value, 0);
   const balance = totalIncome - totalExpenses;
-
   const allInvestments = useMemo(() => Object.entries(data.monthlyData).flatMap(([, m]) => m.investments || []), [data.monthlyData]);
 
-  return {
-    currentDate, monthKey, data, setCurrentDate, goNextMonth: () => setCurrentDate(d => addMonths(d, 1)), goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)),
-    currentMonthData, setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, addExtraIncome, updateExtraIncome, removeExtraIncome,
-    addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense, activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense,
-    toggleRecurringPaid, updateRecurringValue, addInvestment, removeInvestment, addManualEntry, removeManualEntry, addManualExit, removeManualExit,
-    activeInstallments, getInstallmentNumber, addInstallment, toggleInstallmentPaid, removeInstallment, addGoal, toggleGoalPurchased, removeGoal,
-    computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments,
-    removeLedgerEntry, editLedgerEntry
-  };
+  return { currentDate, monthKey, data, setCurrentDate, goNextMonth: () => setCurrentDate(d => addMonths(d, 1)), goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)), currentMonthData, setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, addExtraIncome, updateExtraIncome, removeExtraIncome, addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense, activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense, toggleRecurringPaid, updateRecurringValue, addInvestment, removeInvestment, addManualEntry, removeManualEntry, addManualExit, removeManualExit, activeInstallments, getInstallmentNumber, addInstallment, toggleInstallmentPaid, removeInstallment, addGoal, toggleGoalPurchased, removeGoal, computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments, removeLedgerEntry, editLedgerEntry };
 }

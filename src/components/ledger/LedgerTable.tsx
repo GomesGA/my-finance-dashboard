@@ -13,6 +13,12 @@ interface Props {
   onEditEntry?: (id: string, source: string, date: string, desc: string, value: number) => void;
 }
 
+// Função inteligente que entende vírgula e ponto
+const parseCurrencyInput = (val: string) => {
+  if (val.includes(',')) return Number(val.replace(/\./g, '').replace(',', '.'));
+  return Number(val);
+};
+
 export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, onEditEntry }: Props) {
   const total = entries.reduce((a, c) => a + c.value, 0);
   const isIncome = type === 'income';
@@ -24,18 +30,24 @@ export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, 
 
   const handleSubmit = () => {
     if (!form.date || !form.description || !form.value) return;
-    onAddManual?.(form.date, form.description, Number(form.value));
+    const numericValue = parseCurrencyInput(form.value);
+    if (isNaN(numericValue)) { alert("Valor numérico inválido."); return; }
+    
+    onAddManual?.(form.date, form.description, numericValue);
     setForm({ date: '', description: '', value: '' });
     setShowForm(false);
   };
 
   const startEdit = (entry: LedgerEntry) => {
     setEditingId(entry.id);
-    setEditForm({ date: entry.date, description: entry.description, value: String(entry.value) });
+    setEditForm({ date: entry.date, description: entry.description, value: String(entry.value).replace('.', ',') });
   };
 
   const saveEdit = (entry: LedgerEntry) => {
-    onEditEntry?.(entry.id, entry.source, editForm.date, editForm.description, Number(editForm.value));
+    const numericValue = parseCurrencyInput(editForm.value);
+    if (isNaN(numericValue)) { alert("Valor numérico inválido."); return; }
+    
+    onEditEntry?.(entry.id, entry.source, editForm.date, editForm.description, numericValue);
     setEditingId(null);
   };
 
@@ -60,40 +72,22 @@ export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, 
 
       <AnimatePresence>
         {showForm && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="p-5 border-b border-border bg-muted/30"
-          >
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="p-5 border-b border-border bg-muted/30">
             <div className="flex justify-between items-center mb-4">
-              <span className="text-sm font-semibold text-foreground">
-                {isIncome ? 'Adicionar Nova Entrada' : 'Adicionar Nova Saída'}
-              </span>
-              <button type="button" onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                <X size={18} />
-              </button>
+              <span className="text-sm font-semibold text-foreground">{isIncome ? 'Adicionar Nova Entrada' : 'Adicionar Nova Saída'}</span>
+              <button type="button" onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground transition-colors"><X size={18} /></button>
             </div>
-            
-            {/* Novo Layout do Formulário: Grid adaptável e botão elegante */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <input type="date" className="ledger-input w-full" value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
-              
-              <input type="text" placeholder="Descrição" className="ledger-input w-full sm:col-span-2" value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required />
-              
+              <input type="date" className="ledger-input w-full" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
+              <input type="text" placeholder="Descrição" className="ledger-input w-full sm:col-span-2" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required />
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
-                <input type="number" placeholder="Valor" className="ledger-input w-full font-mono pl-8" value={form.value}
-                  onChange={e => setForm(f => ({ ...f, value: e.target.value }))} required />
+                {/* Aqui mudou de type="number" para text com inputMode="decimal" */}
+                <input type="text" inputMode="decimal" placeholder="0,00" className="ledger-input w-full font-mono pl-8" value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} required />
               </div>
             </div>
-            
             <div className="flex justify-end mt-4">
-              <button type="button" onClick={handleSubmit} className="ledger-btn-primary px-6 py-2 text-sm shadow-sm">
-                Confirmar
-              </button>
+              <button type="button" onClick={handleSubmit} className="ledger-btn-primary px-6 py-2 text-sm shadow-sm">Confirmar</button>
             </div>
           </motion.div>
         )}
@@ -117,7 +111,7 @@ export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, 
                   <tr key={`edit-${entry.id}`} className="border-b border-border bg-muted/20">
                     <td className="px-2 py-2"><input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} className="ledger-input w-full text-xs px-2 py-1" /></td>
                     <td className="px-2 py-2"><input type="text" value={editForm.description} onChange={e => setEditForm({...editForm, description: e.target.value})} className="ledger-input w-full text-xs px-2 py-1" /></td>
-                    <td className="px-2 py-2"><input type="number" value={editForm.value} onChange={e => setEditForm({...editForm, value: e.target.value})} className="ledger-input w-full text-xs px-2 py-1 text-right font-mono" /></td>
+                    <td className="px-2 py-2"><input type="text" inputMode="decimal" value={editForm.value} onChange={e => setEditForm({...editForm, value: e.target.value})} className="ledger-input w-full text-xs px-2 py-1 text-right font-mono" /></td>
                     <td className="px-2 py-2 flex gap-1 justify-center">
                       <button onClick={() => saveEdit(entry)} className="p-1.5 text-success hover:bg-success/20 rounded transition-colors"><Check size={14}/></button>
                       <button onClick={() => setEditingId(null)} className="p-1.5 text-muted-foreground hover:bg-muted rounded transition-colors"><X size={14}/></button>
@@ -141,11 +135,7 @@ export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, 
               })}
             </AnimatePresence>
             {entries.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-5 py-6 text-center text-xs text-muted-foreground italic">
-                  Nenhum registro encontrado.
-                </td>
-              </tr>
+              <tr><td colSpan={4} className="px-5 py-6 text-center text-xs text-muted-foreground italic">Nenhum registro encontrado.</td></tr>
             )}
           </tbody>
         </table>
