@@ -24,6 +24,8 @@ export function DashboardTab({ ledger }: Props) {
 
         <IncomeSection
           income={ledger.currentMonthData.income}
+          incomeDate={ledger.currentMonthData.incomeDate}
+          monthKey={ledger.monthKey}
           onChange={ledger.setIncome}
         />
 

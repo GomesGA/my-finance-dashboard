@@ -54,7 +54,7 @@ export function CardBillsSection({ cards, onAdd, onUpdate, onRemove }: Props) {
                 onChange={e => onUpdate(card.id, { dueDay: Number(e.target.value) })}
                 min={1}
                 max={31}
-                title="Dia de vencimento"
+                title="Dia de pagamento"
               />
               <div className="relative shrink-0 w-24">
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>

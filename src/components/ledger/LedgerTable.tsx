@@ -22,6 +22,13 @@ export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ date: '', description: '', value: '' });
 
+  const handleSubmit = () => {
+    if (!form.date || !form.description || !form.value) return;
+    onAddManual?.(form.date, form.description, Number(form.value));
+    setForm({ date: '', description: '', value: '' });
+    setShowForm(false);
+  };
+
   const startEdit = (entry: LedgerEntry) => {
     setEditingId(entry.id);
     setEditForm({ date: entry.date, description: entry.description, value: String(entry.value) });
@@ -62,36 +69,38 @@ export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, 
             </tr>
           </thead>
           <tbody>
-            <AnimatePresence initial={false}>
-              {entries.map(entry => {
-                const isEditing = editingId === entry.id;
-                return isEditing ? (
-                  <tr key={`edit-${entry.id}`} className="border-b border-border bg-muted/20">
-                    <td className="px-2 py-2"><input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} className="ledger-input w-full text-xs px-2 py-1" /></td>
-                    <td className="px-2 py-2"><input type="text" value={editForm.description} onChange={e => setEditForm({...editForm, description: e.target.value})} className="ledger-input w-full text-xs px-2 py-1" /></td>
-                    <td className="px-2 py-2"><input type="number" value={editForm.value} onChange={e => setEditForm({...editForm, value: e.target.value})} className="ledger-input w-full text-xs px-2 py-1 text-right font-mono" /></td>
-                    <td className="px-2 py-2 flex gap-1 justify-end">
-                      <button onClick={() => saveEdit(entry)} className="p-1.5 text-success hover:bg-success/20 rounded"><Check size={14}/></button>
-                      <button onClick={() => setEditingId(null)} className="p-1.5 text-muted-foreground hover:bg-muted rounded"><X size={14}/></button>
-                    </td>
-                  </tr>
-                ) : (
-                  <motion.tr key={entry.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors group">
-                    <td className="px-5 py-3 text-muted-foreground font-mono text-xs">{entry.date.split('-').reverse().join('/')}</td>
-                    <td className="px-5 py-3 text-foreground">{entry.description}</td>
-                    <td className={`px-5 py-3 text-right font-mono font-semibold ${isIncome ? 'text-success' : 'text-destructive'}`}>
-                      {isIncome ? '+' : '-'} {formatCurrency(entry.value)}
-                    </td>
-                    <td className="px-2 py-3">
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => startEdit(entry)} className="p-1 text-muted-foreground hover:text-primary transition-colors"><Edit2 size={14} /></button>
-                        <button onClick={() => onRemoveEntry?.(entry.id, entry.source)} className="p-1 text-muted-foreground hover:text-destructive transition-colors"><Trash2 size={14} /></button>
+              <AnimatePresence>
+                {showForm && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="p-4 border-b border-border bg-muted/50 space-y-3"
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold text-foreground">
+                        {isIncome ? 'Nova Entrada' : 'Nova Saída'}
+                      </span>
+                      <button type="button" onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground">
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <input type="date" className="ledger-input w-full" value={form.date}
+                        onChange={e => setForm(f => ({ ...f, date: e.target.value }))} required />
+                      <input type="text" placeholder="Descrição" className="ledger-input w-full" value={form.description}
+                        onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required />
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
+                        <input type="number" placeholder="Valor" className="ledger-input w-full font-mono pl-7" value={form.value}
+                          onChange={e => setForm(f => ({ ...f, value: e.target.value }))} required />
                       </div>
-                    </td>
-                  </motion.tr>
-                );
-              })}
-            </AnimatePresence>
+                    </div>
+                    {/* O onClick aqui agora é garantido de funcionar */}
+                    <button type="button" onClick={handleSubmit} className="ledger-btn-primary w-full text-center">Confirmar</button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
           </tbody>
         </table>
       </div>

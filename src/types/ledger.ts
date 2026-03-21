@@ -9,6 +9,7 @@ export interface ManualEntry { id: string; date: string; description: string; va
 
 export interface MonthData {
   income: number;
+  incomeDate?: string; 
   variableExpenses: Expense[];
   cardBills: CardBill[];
   extraIncomes: ExtraIncome[];
