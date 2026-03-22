@@ -127,8 +127,8 @@ export function useLedgerData() {
   const updateRecurringValue = (id: string, value: number) => updateMonthData(m => ({ ...m, recurringValueOverrides: { ...m.recurringValueOverrides, [id]: value } }));
   const updateRecurringDate = (id: string, date: string) => updateMonthData(m => ({ ...m, recurringDateOverrides: { ...(m.recurringDateOverrides || {}), [id]: date } }));
 
-  const addInvestment = (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw') => {
-    const item: Investment = { id: crypto.randomUUID(), type, description, value, date: monthKey, action, createdAt: Date.now() };
+  const addInvestment = (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw', date?: string) => {
+    const item: Investment = { id: crypto.randomUUID(), type, description, value, date: date || monthKey, action, createdAt: Date.now() };
     updateMonthData(m => ({ ...m, investments: [...(m.investments || []), item] }));
   };
   const removeInvestment = (id: string) => updateMonthData(m => ({ ...m, investments: (m.investments || []).filter(i => i.id !== id) }));

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CurrencyInput } from '@/components/CurrencyInput';
 
 interface Props {
-  onAdd: (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw') => void;
+  onAdd: (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw', date: string) => void;
 }
 
 export function InvestmentWidget({ onAdd }: Props) {
@@ -14,13 +14,14 @@ export function InvestmentWidget({ onAdd }: Props) {
     description: '',
     value: 0,
     action: 'deposit' as 'deposit' | 'withdraw',
+    date: new Date().toISOString().split('T')[0], // Puxa a data de hoje automaticamente
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.value || form.value <= 0) return;
-    onAdd(form.type, form.description, form.value, form.action);
-    setForm({ type: 'CDB', description: '', value: 0, action: 'deposit' });
+    if (!form.value || form.value <= 0 || !form.date) return;
+    onAdd(form.type, form.description, form.value, form.action, form.date);
+    setForm({ type: 'CDB', description: '', value: 0, action: 'deposit', date: new Date().toISOString().split('T')[0] });
     setShowForm(false);
   };
 
@@ -87,13 +88,23 @@ export function InvestmentWidget({ onAdd }: Props) {
               ))}
             </div>
 
-            <input
-              type="text"
-              placeholder="Descrição (opcional)"
-              className="ledger-input w-full"
-              value={form.description}
-              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            />
+            <div className="flex gap-2">
+              <input
+                type="date"
+                className="ledger-input w-36 shrink-0 text-xs px-2"
+                value={form.date}
+                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                required
+              />
+              <input
+                type="text"
+                placeholder="Descrição (opcional)"
+                className="ledger-input w-full"
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+            
             <div className="relative">
               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
               <CurrencyInput
@@ -103,6 +114,7 @@ export function InvestmentWidget({ onAdd }: Props) {
                 onChange={val => setForm(f => ({ ...f, value: val }))}
               />
             </div>
+            
             <button type="submit" className="ledger-btn-primary w-full text-center">
               Confirmar
             </button>

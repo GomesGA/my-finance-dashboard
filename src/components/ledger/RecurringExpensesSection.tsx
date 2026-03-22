@@ -74,7 +74,7 @@ export function RecurringExpensesSection({
                   onChange={val => setForm(f => ({ ...f, value: val }))} 
                 />
               </div>
-              <input type="number" placeholder="Dia de vencimento" className="ledger-input w-full" min={1} max={31}
+              <input type="number" placeholder="Dia de Pagamento" className="ledger-input w-full" min={1} max={31}
                 value={form.dueDay} onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))} />
             </div>
             <button type="submit" className="ledger-btn-primary w-full text-center">Confirmar</button>
@@ -105,7 +105,7 @@ export function RecurringExpensesSection({
                   {re.name}
                 </span>
                 <span className="text-[10px] text-muted-foreground shrink-0">
-                  Venc. dia {re.dueDay}
+                  Pag. dia {re.dueDay}
                 </span>
                 <div className="relative shrink-0 w-24">
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
