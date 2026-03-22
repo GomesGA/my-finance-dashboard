@@ -3,6 +3,7 @@ import { Calendar, Plus, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RecurringExpense } from '@/types/ledger';
 import type { MonthData } from '@/types/ledger';
+import { CurrencyInput } from '@/components/CurrencyInput';
 
 interface Props {
   recurring: RecurringExpense[];
@@ -17,13 +18,13 @@ export function RecurringExpensesSection({
   recurring, monthData, onAdd, onSoftDelete, onTogglePaid, onUpdateValue,
 }: Props) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', value: '', dueDay: '' });
+  const [form, setForm] = useState({ name: '', value: 0, dueDay: '' });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.value) return;
-    onAdd(form.name, Number(form.value), Number(form.dueDay) || 1);
-    setForm({ name: '', value: '', dueDay: '' });
+    onAdd(form.name, form.value, Number(form.dueDay) || 1);
+    setForm({ name: '', value: 0, dueDay: '' });
     setShowForm(false);
   };
 
@@ -34,7 +35,7 @@ export function RecurringExpensesSection({
           <Calendar size={18} className="text-muted-foreground" />
           Despesas Recorrentes
         </h2>
-        <button onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1">
+        <button type="button" onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1">
           <Plus size={14} />
           Adicionar
         </button>
@@ -66,10 +67,14 @@ export function RecurringExpensesSection({
             <div className="grid grid-cols-2 gap-3">
               <div className="relative">
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
-                <input type="number" placeholder="Valor" className="ledger-input w-full font-mono pl-7"
-                  value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} />
+                <CurrencyInput 
+                  placeholder="0,00" 
+                  className="ledger-input w-full font-mono pl-7"
+                  value={form.value} 
+                  onChange={val => setForm(f => ({ ...f, value: val }))} 
+                />
               </div>
-              <input type="number" placeholder="Dia de pagamento" className="ledger-input w-full" min={1} max={31}
+              <input type="number" placeholder="Dia de vencimento" className="ledger-input w-full" min={1} max={31}
                 value={form.dueDay} onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))} />
             </div>
             <button type="submit" className="ledger-btn-primary w-full text-center">Confirmar</button>
@@ -100,18 +105,19 @@ export function RecurringExpensesSection({
                   {re.name}
                 </span>
                 <span className="text-[10px] text-muted-foreground shrink-0">
-                  Pag. dia {re.dueDay}
+                  Venc. dia {re.dueDay}
                 </span>
                 <div className="relative shrink-0 w-24">
                   <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
-                  <input
-                    type="number"
+                  <CurrencyInput
+                    placeholder="0,00"
                     className="ledger-input w-full font-mono pl-7"
-                    value={currentValue || ''}
-                    onChange={e => onUpdateValue(re.id, Number(e.target.value))}
+                    value={currentValue || 0}
+                    onChange={val => onUpdateValue(re.id, val)}
                   />
                 </div>
                 <button
+                  type="button"
                   onClick={() => onSoftDelete(re.id)}
                   className="p-1.5 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                   title="Encerrar a partir deste mês"

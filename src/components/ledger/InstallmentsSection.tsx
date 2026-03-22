@@ -3,6 +3,7 @@ import { ShoppingBag, Plus, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Installment } from '@/types/ledger';
 import { formatCurrency } from '@/lib/format';
+import { CurrencyInput } from '@/components/CurrencyInput';
 
 interface Props {
   installments: Installment[];
@@ -14,13 +15,13 @@ interface Props {
 
 export function InstallmentsSection({ installments, monthKey, getNumber, onAdd, onRemove }: Props) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', value: '', total: '' });
+  const [form, setForm] = useState({ name: '', value: 0, total: '' });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.value || !form.total) return;
-    onAdd(form.name, Number(form.value), Number(form.total));
-    setForm({ name: '', value: '', total: '' });
+    onAdd(form.name, form.value, Number(form.total));
+    setForm({ name: '', value: 0, total: '' });
     setShowForm(false);
   };
 
@@ -34,7 +35,7 @@ export function InstallmentsSection({ installments, monthKey, getNumber, onAdd, 
           </h2>
           <p className="text-[10px] text-muted-foreground mt-0.5">Apenas visualização — não afeta o saldo</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1">
+        <button type="button" onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1">
           <Plus size={14} />
           Nova Compra
         </button>
@@ -66,8 +67,12 @@ export function InstallmentsSection({ installments, monthKey, getNumber, onAdd, 
             <div className="grid grid-cols-2 gap-3">
               <div className="relative">
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
-                <input type="number" placeholder="Valor da parcela" className="ledger-input w-full font-mono pl-7"
-                  value={form.value} onChange={e => setForm(f => ({ ...f, value: e.target.value }))} />
+                <CurrencyInput 
+                  placeholder="0,00" 
+                  className="ledger-input w-full font-mono pl-7"
+                  value={form.value} 
+                  onChange={val => setForm(f => ({ ...f, value: val }))} 
+                />
               </div>
               <input type="number" placeholder="Nº de parcelas" className="ledger-input w-full"
                 value={form.total} onChange={e => setForm(f => ({ ...f, total: e.target.value }))} />
@@ -99,7 +104,7 @@ export function InstallmentsSection({ installments, monthKey, getNumber, onAdd, 
                   <span className="font-mono text-sm font-semibold text-foreground">
                     {formatCurrency(inst.monthlyValue)}
                   </span>
-                  <button onClick={() => onRemove(inst.id)}
+                  <button type="button" onClick={() => onRemove(inst.id)}
                     className="p-1 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
                     <Trash2 size={14} />
                   </button>

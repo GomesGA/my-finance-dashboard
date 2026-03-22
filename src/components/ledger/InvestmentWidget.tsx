@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TrendingUp, ArrowUpRight, ArrowDownLeft, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { CurrencyInput } from '@/components/CurrencyInput';
 
 interface Props {
   onAdd: (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw') => void;
@@ -11,15 +12,15 @@ export function InvestmentWidget({ onAdd }: Props) {
   const [form, setForm] = useState({
     type: 'CDB' as 'CDB' | 'Bitcoin',
     description: '',
-    value: '',
+    value: 0,
     action: 'deposit' as 'deposit' | 'withdraw',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.value || Number(form.value) <= 0) return;
-    onAdd(form.type, form.description, Number(form.value), form.action);
-    setForm({ type: 'CDB', description: '', value: '', action: 'deposit' });
+    if (!form.value || form.value <= 0) return;
+    onAdd(form.type, form.description, form.value, form.action);
+    setForm({ type: 'CDB', description: '', value: 0, action: 'deposit' });
     setShowForm(false);
   };
 
@@ -34,6 +35,7 @@ export function InvestmentWidget({ onAdd }: Props) {
 
       <div className="flex gap-2 mb-4">
         <button
+          type="button"
           onClick={() => { setForm(f => ({ ...f, action: 'deposit' })); setShowForm(true); }}
           className="flex-1 flex items-center justify-center gap-1.5 text-xs py-2.5 rounded-lg border border-border hover:bg-muted transition-colors text-foreground"
         >
@@ -41,6 +43,7 @@ export function InvestmentWidget({ onAdd }: Props) {
           Aportar
         </button>
         <button
+          type="button"
           onClick={() => { setForm(f => ({ ...f, action: 'withdraw' })); setShowForm(true); }}
           className="flex-1 flex items-center justify-center gap-1.5 text-xs py-2.5 rounded-lg border border-border hover:bg-muted transition-colors text-foreground"
         >
@@ -93,12 +96,11 @@ export function InvestmentWidget({ onAdd }: Props) {
             />
             <div className="relative">
               <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
-              <input
-                type="number"
-                placeholder="Valor"
+              <CurrencyInput
+                placeholder="0,00"
                 className="ledger-input w-full font-mono pl-7"
                 value={form.value}
-                onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
+                onChange={val => setForm(f => ({ ...f, value: val }))}
               />
             </div>
             <button type="submit" className="ledger-btn-primary w-full text-center">

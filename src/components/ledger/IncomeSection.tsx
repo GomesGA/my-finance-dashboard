@@ -1,4 +1,5 @@
 import { Wallet } from 'lucide-react';
+import { CurrencyInput } from '@/components/CurrencyInput';
 
 interface Props {
   income: number;
@@ -24,12 +25,11 @@ export function IncomeSection({ income, incomeDate, monthKey, onChange }: Props)
         />
         <div className="relative flex-1">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
-          <input
-            type="number"
+          <CurrencyInput
             placeholder="0,00"
             className="ledger-input w-full font-mono pl-8 text-lg"
-            value={income || ''}
-            onChange={e => onChange(Number(e.target.value), incomeDate || `${monthKey}-01`)}
+            value={income}
+            onChange={val => onChange(val, incomeDate || `${monthKey}-01`)}
           />
         </div>
       </div>
