@@ -7,7 +7,10 @@ export interface Goal { id: string; name: string; targetValue: number; purchased
 export interface LedgerEntry { id: string; date: string; description: string; value: number; source: string; createdAt?: number; }
 export interface ManualEntry { id: string; date: string; description: string; value: number; createdAt?: number; }
 export interface Card { id: string; name: string; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; }
-export interface Subscription { id: string; name: string; value: number; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; }
+
+// NOVO: Adicionado paymentMethod
+export interface Subscription { id: string; name: string; value: number; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; paymentMethod?: string; }
+export interface Installment { id: string; name: string; monthlyValue: number; totalMonths: number; startDate: string; paidMonths: string[]; createdAt?: number; paymentMethod?: string; }
 
 export interface MonthData {
   income: number;
@@ -26,8 +29,6 @@ export interface MonthData {
   subscriptionValueOverrides: Record<string, number>;
   subscriptionDateOverrides?: Record<string, string>;
 }
-
-export interface Installment { id: string; name: string; monthlyValue: number; totalMonths: number; startDate: string; paidMonths: string[]; createdAt?: number; }
 
 export interface LedgerData { 
   monthlyData: Record<string, MonthData>; 
