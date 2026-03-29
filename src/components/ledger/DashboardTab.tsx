@@ -73,7 +73,7 @@ export function DashboardTab({ ledger }: Props) {
         />
 
         <CardBillsSection
-          cards={ledger.currentMonthData.cardBills}
+          cards={ledger.computedCardBills}
           onAdd={ledger.addCard}
           onUpdate={ledger.updateCard}
           onRemove={ledger.removeCard}

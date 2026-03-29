@@ -40,7 +40,9 @@ export function CardBillsSection({ cards, onAdd, onUpdate, onRemove }: Props) {
                   onChange={val => onUpdate(card.id, { value: val })}
                 />
               </div>
-              <button onClick={() => onRemove(card.id)} className="p-1.5 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><Trash2 size={14} /></button>
+              <button onClick={() => onRemove(card.id)} className="p-1.5 text-muted-foreground/40 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0" title="Encerrar cartão a partir deste mês">
+                <Trash2 size={14} />
+              </button>
             </motion.div>
           ))}
         </AnimatePresence>

@@ -7,6 +7,8 @@ export interface Goal { id: string; name: string; targetValue: number; purchased
 export interface LedgerEntry { id: string; date: string; description: string; value: number; source: string; createdAt?: number; }
 export interface ManualEntry { id: string; date: string; description: string; value: number; createdAt?: number; }
 
+export interface Card { id: string; name: string; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; }
+
 export interface MonthData {
   income: number;
   incomeDate?: string;
@@ -23,8 +25,14 @@ export interface MonthData {
 }
 
 export interface Installment { id: string; name: string; monthlyValue: number; totalMonths: number; startDate: string; paidMonths: string[]; createdAt?: number; }
-export interface LedgerData { monthlyData: Record<string, MonthData>; installments: Installment[]; goals: Goal[]; recurringExpenses: RecurringExpense[]; }
 
+export interface LedgerData { 
+  monthlyData: Record<string, MonthData>; 
+  installments: Installment[]; 
+  goals: Goal[]; 
+  recurringExpenses: RecurringExpense[]; 
+  cards: Card[];
+}
 export const emptyMonthData: MonthData = {
   income: 0, variableExpenses: [], cardBills: [], extraIncomes: [], extraordinaryExpenses: [], investments: [],
   manualEntries: [], manualExits: [], recurringPaidState: {}, recurringValueOverrides: {}, recurringDateOverrides: {},
