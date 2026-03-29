@@ -6,8 +6,10 @@ export interface Investment { id: string; type: 'CDB' | 'Bitcoin'; description: 
 export interface Goal { id: string; name: string; targetValue: number; purchased: boolean; createdAt?: number; }
 export interface LedgerEntry { id: string; date: string; description: string; value: number; source: string; createdAt?: number; }
 export interface ManualEntry { id: string; date: string; description: string; value: number; createdAt?: number; }
-
 export interface Card { id: string; name: string; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; }
+
+// NOVO: Tipo Assinatura
+export interface Subscription { id: string; name: string; value: number; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; }
 
 export interface MonthData {
   income: number;
@@ -22,6 +24,11 @@ export interface MonthData {
   recurringPaidState: Record<string, boolean>;
   recurringValueOverrides: Record<string, number>;
   recurringDateOverrides?: Record<string, string>;
+  
+  // NOVO: Controle mensal das Assinaturas
+  subscriptionPaidState: Record<string, boolean>;
+  subscriptionValueOverrides: Record<string, number>;
+  subscriptionDateOverrides?: Record<string, string>;
 }
 
 export interface Installment { id: string; name: string; monthlyValue: number; totalMonths: number; startDate: string; paidMonths: string[]; createdAt?: number; }
@@ -30,10 +37,13 @@ export interface LedgerData {
   monthlyData: Record<string, MonthData>; 
   installments: Installment[]; 
   goals: Goal[]; 
-  recurringExpenses: RecurringExpense[]; 
+  recurringExpenses: RecurringExpense[];
   cards: Card[];
+  subscriptions: Subscription[]; 
 }
+
 export const emptyMonthData: MonthData = {
   income: 0, variableExpenses: [], cardBills: [], extraIncomes: [], extraordinaryExpenses: [], investments: [],
   manualEntries: [], manualExits: [], recurringPaidState: {}, recurringValueOverrides: {}, recurringDateOverrides: {},
+  subscriptionPaidState: {}, subscriptionValueOverrides: {}, subscriptionDateOverrides: {} // <-- NOVO
 };

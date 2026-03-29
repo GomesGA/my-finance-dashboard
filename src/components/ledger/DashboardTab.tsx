@@ -4,8 +4,10 @@ import { CardBillsSection } from './CardBillsSection';
 import { InvestmentWidget } from './InvestmentWidget';
 import { RecurringExpensesSection } from './RecurringExpensesSection';
 import { LedgerTable } from './LedgerTable';
+import { SubscriptionsSection } from './SubscriptionsSection';
 import { InstallmentsSection } from './InstallmentsSection';
 import type { useLedgerData } from '@/hooks/useLedgerData';
+
 
 interface Props {
   ledger: ReturnType<typeof useLedgerData>;
@@ -77,6 +79,15 @@ export function DashboardTab({ ledger }: Props) {
           onAdd={ledger.addCard}
           onUpdate={ledger.updateCard}
           onRemove={ledger.removeCard}
+        />
+
+        <SubscriptionsSection
+          subscriptions={ledger.activeSubscriptions}
+          monthData={ledger.currentMonthData}
+          onAdd={ledger.addSubscription}
+          onSoftDelete={ledger.softDeleteSubscription}
+          onTogglePaid={ledger.toggleSubscriptionPaid}
+          onUpdateValue={ledger.updateSubscriptionValue}
         />
       </div>
     </div>
