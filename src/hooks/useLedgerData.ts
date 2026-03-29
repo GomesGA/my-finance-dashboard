@@ -51,7 +51,7 @@ export function useLedgerData() {
             });
             parsed.cards = Array.from(allCardsMap.values());
           }
-        setData(parsed);
+          setData(parsed);
         }
       } catch (err) { console.error("Erro ao carregar do Supabase", err); } 
       finally { isFetchingRef.current = false; setIsLoaded(true); }
@@ -85,11 +85,20 @@ export function useLedgerData() {
     }));
   }, [monthKey]);
 
+  // FUNÇÕES DE DADOS (Restauradas para não perder histórico antigo)
   const setIncome = (val: number, date?: string) => updateMonthData(m => ({ ...m, income: val, incomeDate: date }));
 
   const addExpense = () => { const item: Expense = { id: crypto.randomUUID(), name: '', value: 0, paid: false, createdAt: Date.now() }; updateMonthData(m => ({ ...m, variableExpenses: [...m.variableExpenses, item] })); };
   const updateExpense = (id: string, patch: Partial<Expense>) => updateMonthData(m => ({ ...m, variableExpenses: m.variableExpenses.map(e => e.id === id ? { ...e, ...patch } : e) }));
   const removeExpense = (id: string) => updateMonthData(m => ({ ...m, variableExpenses: m.variableExpenses.filter(e => e.id !== id) }));
+
+  const addExtraIncome = () => { const item: ExtraIncome = { id: crypto.randomUUID(), description: '', value: 0, createdAt: Date.now() }; updateMonthData(m => ({ ...m, extraIncomes: [...(m.extraIncomes || []), item] })); };
+  const updateExtraIncome = (id: string, patch: Partial<ExtraIncome>) => updateMonthData(m => ({ ...m, extraIncomes: (m.extraIncomes || []).map(e => e.id === id ? { ...e, ...patch } : e) }));
+  const removeExtraIncome = (id: string) => updateMonthData(m => ({ ...m, extraIncomes: (m.extraIncomes || []).filter(e => e.id !== id) }));
+
+  const addExtraordinaryExpense = () => { const item: Expense = { id: crypto.randomUUID(), name: '', value: 0, paid: false, createdAt: Date.now() }; updateMonthData(m => ({ ...m, extraordinaryExpenses: [...(m.extraordinaryExpenses || []), item] })); };
+  const updateExtraordinaryExpense = (id: string, patch: Partial<Expense>) => updateMonthData(m => ({ ...m, extraordinaryExpenses: (m.extraordinaryExpenses || []).map(e => e.id === id ? { ...e, ...patch } : e) }));
+  const removeExtraordinaryExpense = (id: string) => updateMonthData(m => ({ ...m, extraordinaryExpenses: (m.extraordinaryExpenses || []).filter(e => e.id !== id) }));
 
   const addCard = () => { const item: Card = { id: crypto.randomUUID(), name: '', dueDay: 1, startMonth: monthKey, createdAt: Date.now() }; setData(prev => ({ ...prev, cards: [...(prev.cards || []), item] })); };
   const updateCard = (id: string, patch: Partial<CardBill>) => {
@@ -117,6 +126,7 @@ export function useLedgerData() {
   const updateSubscriptionValue = (id: string, value: number) => updateMonthData(m => ({ ...m, subscriptionValueOverrides: { ...m.subscriptionValueOverrides, [id]: value } }));
   const updateSubscriptionDate = (id: string, date: string) => updateMonthData(m => ({ ...m, subscriptionDateOverrides: { ...(m.subscriptionDateOverrides || {}), [id]: date } }));
 
+  // RECORRENTES
   const activeRecurringExpenses = useMemo(() => { return data.recurringExpenses.filter(re => { if (re.startMonth > monthKey) return false; if (re.endMonth && re.endMonth <= monthKey) return false; return true; }); }, [data.recurringExpenses, monthKey]);
   const addRecurringExpense = (name: string, value: number, dueDay: number) => { const re: RecurringExpense = { id: crypto.randomUUID(), name, value, dueDay, startMonth: monthKey, createdAt: Date.now() }; setData(prev => ({ ...prev, recurringExpenses: [...prev.recurringExpenses, re] })); };
   const softDeleteRecurringExpense = (id: string) => setData(prev => ({ ...prev, recurringExpenses: prev.recurringExpenses.map(re => re.id === id ? { ...re, endMonth: monthKey } : re) }));
@@ -150,6 +160,8 @@ export function useLedgerData() {
     else if (source === 'subscription') toggleSubscriptionPaid(id);
     else if (source === 'salary') setIncome(0);
     else if (source === 'investment-deposit' || source === 'investment-withdraw') removeInvestment(id);
+    else if (source === 'extra-income') removeExtraIncome(id);
+    else if (source === 'extraordinary') removeExtraordinaryExpense(id);
   };
 
   const editLedgerEntry = (idStr: string, source: string, date: string, description: string, value: number) => {
@@ -168,6 +180,7 @@ export function useLedgerData() {
   const computedEntries: LedgerEntry[] = useMemo(() => {
     const entries: LedgerEntry[] = [];
     if (currentMonthData.income > 0) entries.push({ id: 'salary', date: currentMonthData.incomeDate || `${monthKey}-01`, description: 'Salário', value: currentMonthData.income, source: 'salary', createdAt: 0 });
+    (currentMonthData.extraIncomes || []).forEach(ei => { if (ei.value > 0) entries.push({ id: `ei-${ei.id}`, date: `${monthKey}-01`, description: ei.description || 'Renda Extra', value: Number(ei.value), source: 'extra-income', createdAt: ei.createdAt }); });
     (currentMonthData.investments || []).filter(i => i.action === 'withdraw').forEach(inv => entries.push({ id: `inv-${inv.id}`, date: inv.date, description: `Resgate ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-withdraw', createdAt: inv.createdAt }));
     (currentMonthData.manualEntries || []).forEach(me => entries.push({ id: `me-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-entry', createdAt: me.createdAt }));
     return entries.sort(sortEntriesByDateAndQueue);
@@ -178,6 +191,7 @@ export function useLedgerData() {
     activeRecurringExpenses.forEach(re => { if (currentMonthData.recurringPaidState[re.id]) exits.push({ id: `rec-${re.id}`, date: currentMonthData.recurringDateOverrides?.[re.id] || `${monthKey}-${String(re.dueDay).padStart(2, '0')}`, description: re.name, value: Number(currentMonthData.recurringValueOverrides[re.id] ?? re.value), source: 'recurring', createdAt: re.createdAt }); });
     activeSubscriptions.forEach(sub => { if (currentMonthData.subscriptionPaidState[sub.id]) exits.push({ id: `sub-${sub.id}`, date: currentMonthData.subscriptionDateOverrides?.[sub.id] || `${monthKey}-${String(sub.dueDay).padStart(2, '0')}`, description: sub.name, value: Number(currentMonthData.subscriptionValueOverrides[sub.id] ?? sub.value), source: 'subscription', createdAt: sub.createdAt }); });
     computedCardBills.filter(c => c.paid).forEach(c => exits.push({ id: `card-${c.id}`, date: c.paymentDate || `${monthKey}-${String(c.dueDay || 1).padStart(2, '0')}`, description: c.name || 'Cartão', value: Number(c.value), source: 'card', createdAt: c.createdAt }));
+    (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).forEach(e => exits.push({ id: `ext-${e.id}`, date: `${monthKey}-01`, description: e.name || 'Despesa Extra', value: Number(e.value), source: 'extraordinary', createdAt: e.createdAt }));
     (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit', createdAt: inv.createdAt }));
     (currentMonthData.manualExits || []).forEach(me => exits.push({ id: `mx-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-exit', createdAt: me.createdAt }));
     return exits.sort(sortEntriesByDateAndQueue);
@@ -188,5 +202,6 @@ export function useLedgerData() {
   const balance = totalIncome - totalExpenses;
   const allInvestments = useMemo(() => Object.entries(data.monthlyData).flatMap(([, m]) => m.investments || []), [data.monthlyData]);
 
-  return { currentDate, monthKey, data, setCurrentDate, goNextMonth: () => setCurrentDate(d => addMonths(d, 1)), goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)), currentMonthData, setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense, activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense, toggleRecurringPaid, updateRecurringValue, activeSubscriptions, addSubscription, softDeleteSubscription, toggleSubscriptionPaid, updateSubscriptionValue, addInvestment, removeInvestment, addManualEntry, removeManualEntry, addManualExit, removeManualExit, activeInstallments, getInstallmentNumber, addInstallment, toggleInstallmentPaid, removeInstallment, addGoal, toggleGoalPurchased, removeGoal, computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments, removeLedgerEntry, editLedgerEntry, computedCardBills };
+  // AGORA SIM TUDO EXPORTADO!
+  return { currentDate, monthKey, data, setCurrentDate, goNextMonth: () => setCurrentDate(d => addMonths(d, 1)), goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)), currentMonthData, setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, addExtraIncome, updateExtraIncome, removeExtraIncome, addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense, activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense, toggleRecurringPaid, updateRecurringValue, activeSubscriptions, addSubscription, softDeleteSubscription, toggleSubscriptionPaid, updateSubscriptionValue, addInvestment, removeInvestment, addManualEntry, removeManualEntry, addManualExit, removeManualExit, activeInstallments, getInstallmentNumber, addInstallment, toggleInstallmentPaid, removeInstallment, addGoal, toggleGoalPurchased, removeGoal, computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments, removeLedgerEntry, editLedgerEntry, computedCardBills };
 }
