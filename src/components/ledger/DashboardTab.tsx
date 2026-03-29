@@ -39,6 +39,7 @@ export function DashboardTab({ ledger }: Props) {
           cards={ledger.data.cards} // 👇 ADICIONE ESTA LINHA
           getNumber={ledger.getInstallmentNumber}
           onAdd={ledger.addInstallment}
+          onEdit={ledger.editInstallment}
           onRemove={ledger.removeInstallment}
         />
       </div>
@@ -87,6 +88,7 @@ export function DashboardTab({ ledger }: Props) {
           monthData={ledger.currentMonthData}
           cards={ledger.data.cards}
           onAdd={ledger.addSubscription}
+          onEdit={ledger.editSubscription}
           onSoftDelete={ledger.softDeleteSubscription}
           onTogglePaid={ledger.toggleSubscriptionPaid}
           onUpdateValue={ledger.updateSubscriptionValue}

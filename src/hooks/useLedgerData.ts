@@ -151,6 +151,9 @@ export function useLedgerData() {
   const toggleGoalPurchased = (id: string) => setData(prev => ({ ...prev, goals: prev.goals.map(g => g.id === id ? { ...g, purchased: !g.purchased } : g) }));
   const removeGoal = (id: string) => setData(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
 
+  const editSubscription = (id: string, name: string, value: number, dueDay: number, paymentMethod: string) => setData(prev => ({ ...prev, subscriptions: prev.subscriptions.map(s => s.id === id ? { ...s, name, value, dueDay, paymentMethod } : s) }));
+  const editInstallment = (id: string, name: string, monthlyValue: number, totalMonths: number, paymentMethod: string) => setData(prev => ({ ...prev, installments: prev.installments.map(i => i.id === id ? { ...i, name, monthlyValue, totalMonths, paymentMethod } : i) }));
+
   const removeLedgerEntry = (idStr: string, source: string) => {
     const id = idStr.replace(/^[a-z]+-/, ''); 
     if (source === 'manual-entry') removeManualEntry(id);
@@ -209,5 +212,5 @@ export function useLedgerData() {
   const balance = totalIncome - totalExpenses;
   const allInvestments = useMemo(() => Object.entries(data.monthlyData).flatMap(([, m]) => m.investments || []), [data.monthlyData]);
 
-  return { currentDate, monthKey, data, setCurrentDate, goNextMonth: () => setCurrentDate(d => addMonths(d, 1)), goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)), currentMonthData, setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense, activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense, toggleRecurringPaid, updateRecurringValue, activeSubscriptions, addSubscription, softDeleteSubscription, toggleSubscriptionPaid, updateSubscriptionValue, addInvestment, removeInvestment, addManualEntry, removeManualEntry, addManualExit, removeManualExit, activeInstallments, getInstallmentNumber, addInstallment, toggleInstallmentPaid, removeInstallment, addGoal, toggleGoalPurchased, removeGoal, computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments, removeLedgerEntry, editLedgerEntry, computedCardBills };
+  return { currentDate, monthKey, data, setCurrentDate, goNextMonth: () => setCurrentDate(d => addMonths(d, 1)), goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)), currentMonthData, setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense, activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense, toggleRecurringPaid, updateRecurringValue, activeSubscriptions, addSubscription, softDeleteSubscription, toggleSubscriptionPaid, updateSubscriptionValue, addInvestment, removeInvestment, addManualEntry, removeManualEntry, addManualExit, removeManualExit, activeInstallments, getInstallmentNumber, addInstallment, toggleInstallmentPaid, removeInstallment, addGoal, toggleGoalPurchased, removeGoal, computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments, removeLedgerEntry, editLedgerEntry, computedCardBills, editSubscription, editInstallment };
 }
