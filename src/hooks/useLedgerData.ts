@@ -143,7 +143,7 @@ export function useLedgerData() {
 
   const activeInstallments = data.installments.filter(inst => { const startDate = new Date(Number(inst.startDate.split('-')[0]), Number(inst.startDate.split('-')[1]) - 1, 1); const currentMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1); const diff = differenceInMonths(currentMonthDate, startDate); return diff >= 0 && diff < inst.totalMonths; });
   const getInstallmentNumber = (inst: Installment): number => differenceInMonths(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), new Date(Number(inst.startDate.split('-')[0]), Number(inst.startDate.split('-')[1]) - 1, 1)) + 1;
-  const addInstallment = (name: string, monthlyValue: number, totalMonths: number, paymentMethod: string) => { const inst: Installment = { id: crypto.randomUUID(), name, monthlyValue, totalMonths, startDate: monthKey, paidMonths: [], createdAt: Date.now(), paymentMethod }; setData(prev => ({ ...prev, installments: [...prev.installments, inst] })); };
+  const addInstallment = (name: string, monthlyValue: number, totalMonths: number, paymentMethod: string, dueDay: number) => { const inst: Installment = { id: crypto.randomUUID(), name, monthlyValue, totalMonths, startDate: monthKey, paidMonths: [], createdAt: Date.now(), paymentMethod, dueDay }; setData(prev => ({ ...prev, installments: [...prev.installments, inst] })); };
   const toggleInstallmentPaid = (id: string) => setData(prev => ({ ...prev, installments: prev.installments.map(inst => inst.id === id ? { ...inst, paidMonths: inst.paidMonths.includes(monthKey) ? inst.paidMonths.filter(m => m !== monthKey) : [...inst.paidMonths, monthKey] } : inst) }));
   const removeInstallment = (id: string) => setData(prev => ({ ...prev, installments: prev.installments.filter(i => i.id !== id) }));
 
@@ -152,8 +152,7 @@ export function useLedgerData() {
   const removeGoal = (id: string) => setData(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
 
   const editSubscription = (id: string, name: string, value: number, dueDay: number, paymentMethod: string) => setData(prev => ({ ...prev, subscriptions: prev.subscriptions.map(s => s.id === id ? { ...s, name, value, dueDay, paymentMethod } : s) }));
-  const editInstallment = (id: string, name: string, monthlyValue: number, totalMonths: number, paymentMethod: string) => setData(prev => ({ ...prev, installments: prev.installments.map(i => i.id === id ? { ...i, name, monthlyValue, totalMonths, paymentMethod } : i) }));
-
+  const editInstallment = (id: string, name: string, monthlyValue: number, totalMonths: number, paymentMethod: string, dueDay: number) => setData(prev => ({ ...prev, installments: prev.installments.map(i => i.id === id ? { ...i, name, monthlyValue, totalMonths, paymentMethod, dueDay } : i) }));
   const editRecurringExpense = (id: string, name: string, value: number, dueDay: number) => setData(prev => ({ ...prev, recurringExpenses: prev.recurringExpenses.map(re => re.id === id ? { ...re, name, value, dueDay } : re) }));
   const editCard = (id: string, name: string, value: number, dueDay: number) => updateCard(id, { name, value, dueDay });
 
@@ -205,11 +204,10 @@ export function useLedgerData() {
       }
     });
 
-    // NOVO: Filtro de Parcelas pagas no Pix
     activeInstallments.forEach(inst => {
       if (inst.paidMonths.includes(monthKey)) {
         if (!inst.paymentMethod || inst.paymentMethod === 'Pix') {
-          exits.push({ id: `inst-${inst.id}`, date: `${monthKey}-01`, description: `Parcela: ${inst.name}`, value: inst.monthlyValue, source: 'installment', createdAt: inst.createdAt });
+          exits.push({ id: `inst-${inst.id}`, date: `${monthKey}-${String(inst.dueDay || 1).padStart(2, '0')}`, description: `Parcela: ${inst.name}`, value: inst.monthlyValue, source: 'installment', createdAt: inst.createdAt });
         }
       }
     });
