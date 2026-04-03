@@ -41,6 +41,7 @@ export function DashboardTab({ ledger }: Props) {
           onAdd={ledger.addInstallment}
           onEdit={ledger.editInstallment}
           onRemove={ledger.removeInstallment}
+          onTogglePaid={ledger.toggleInstallmentPaid}
         />
       </div>
 

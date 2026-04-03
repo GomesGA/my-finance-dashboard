@@ -164,8 +164,11 @@ export function useLedgerData() {
     else if (source === 'card') updateCard(id, { paid: false });
     else if (source === 'recurring') toggleRecurringPaid(id);
     else if (source === 'subscription') toggleSubscriptionPaid(id);
+    else if (source === 'installment') toggleInstallmentPaid(id); // NOVO
     else if (source === 'salary') setIncome(0);
     else if (source === 'investment-deposit' || source === 'investment-withdraw') removeInvestment(id);
+    else if (source === 'extra-income') removeExtraIncome(id);
+    else if (source === 'extraordinary') removeExtraordinaryExpense(id);
   };
 
   const editLedgerEntry = (idStr: string, source: string, date: string, description: string, value: number) => {
@@ -184,6 +187,7 @@ export function useLedgerData() {
   const computedEntries: LedgerEntry[] = useMemo(() => {
     const entries: LedgerEntry[] = [];
     if (currentMonthData.income > 0) entries.push({ id: 'salary', date: currentMonthData.incomeDate || `${monthKey}-01`, description: 'Salário', value: currentMonthData.income, source: 'salary', createdAt: 0 });
+    (currentMonthData.extraIncomes || []).forEach(ei => { if (ei.value > 0) entries.push({ id: `ei-${ei.id}`, date: `${monthKey}-01`, description: ei.description || 'Renda Extra', value: Number(ei.value), source: 'extra-income', createdAt: ei.createdAt }); });
     (currentMonthData.investments || []).filter(i => i.action === 'withdraw').forEach(inv => entries.push({ id: `inv-${inv.id}`, date: inv.date, description: `Resgate ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-withdraw', createdAt: inv.createdAt }));
     (currentMonthData.manualEntries || []).forEach(me => entries.push({ id: `me-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-entry', createdAt: me.createdAt }));
     return entries.sort(sortEntriesByDateAndQueue);
@@ -193,12 +197,19 @@ export function useLedgerData() {
     const exits: LedgerEntry[] = [];
     activeRecurringExpenses.forEach(re => { if (currentMonthData.recurringPaidState[re.id]) exits.push({ id: `rec-${re.id}`, date: currentMonthData.recurringDateOverrides?.[re.id] || `${monthKey}-${String(re.dueDay).padStart(2, '0')}`, description: re.name, value: Number(currentMonthData.recurringValueOverrides[re.id] ?? re.value), source: 'recurring', createdAt: re.createdAt }); });
     
-    // FILTRO DO PIX NAS ASSINATURAS
     activeSubscriptions.forEach(sub => { 
       if (currentMonthData.subscriptionPaidState[sub.id]) {
-        // Só vai para a tabela de saídas se for Pix (ou se for antigo sem método)
         if (!sub.paymentMethod || sub.paymentMethod === 'Pix') {
           exits.push({ id: `sub-${sub.id}`, date: currentMonthData.subscriptionDateOverrides?.[sub.id] || `${monthKey}-${String(sub.dueDay).padStart(2, '0')}`, description: sub.name, value: Number(currentMonthData.subscriptionValueOverrides[sub.id] ?? sub.value), source: 'subscription', createdAt: sub.createdAt }); 
+        }
+      }
+    });
+
+    // NOVO: Filtro de Parcelas pagas no Pix
+    activeInstallments.forEach(inst => {
+      if (inst.paidMonths.includes(monthKey)) {
+        if (!inst.paymentMethod || inst.paymentMethod === 'Pix') {
+          exits.push({ id: `inst-${inst.id}`, date: `${monthKey}-01`, description: `Parcela: ${inst.name}`, value: inst.monthlyValue, source: 'installment', createdAt: inst.createdAt });
         }
       }
     });
@@ -208,7 +219,7 @@ export function useLedgerData() {
     (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit', createdAt: inv.createdAt }));
     (currentMonthData.manualExits || []).forEach(me => exits.push({ id: `mx-${me.id}`, date: me.date, description: me.description, value: Number(me.value), source: 'manual-exit', createdAt: me.createdAt }));
     return exits.sort(sortEntriesByDateAndQueue);
-  }, [currentMonthData, monthKey, activeRecurringExpenses, activeSubscriptions, computedCardBills]);
+  }, [currentMonthData, monthKey, activeRecurringExpenses, activeSubscriptions, activeInstallments, computedCardBills]);
 
   const totalIncome = computedEntries.reduce((a, c) => a + c.value, 0);
   const totalExpenses = computedExits.reduce((a, c) => a + c.value, 0);
