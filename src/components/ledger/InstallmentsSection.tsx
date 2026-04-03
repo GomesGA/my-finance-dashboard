@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, Plus, Trash2, X, CreditCard, Banknote, Edit2, Check } from 'lucide-react';
+import { ShoppingBag, Plus, Trash2, X, CreditCard, Edit2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Installment, Card } from '@/types/ledger';
 import { formatCurrency } from '@/lib/format';
@@ -28,7 +28,7 @@ export function InstallmentsSection({ installments, monthKey, cards, getNumber, 
     <section className="ledger-card p-6 flex flex-col h-full">
       <div className="flex justify-between items-center mb-5">
         <div><h2 className="font-semibold flex items-center gap-2 text-foreground"><ShoppingBag size={18} className="text-muted-foreground" /> Compras Parceladas</h2></div>
-        <button type="button" onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1"><Plus size={14} /> Nova Compra</button>
+        <button type="button" onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1"><Plus size={14} /> Nova</button>
       </div>
 
       <AnimatePresence>
@@ -54,32 +54,41 @@ export function InstallmentsSection({ installments, monthKey, cards, getNumber, 
 
             if (isEditing) {
               return (
-                <motion.div key={inst.id} className="p-3 bg-muted/30 border border-border rounded-lg space-y-2">
-                  <input type="text" className="ledger-input w-full text-xs" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
-                  <select className="ledger-input w-full text-xs bg-background" value={editForm.paymentMethod} onChange={e => setEditForm(f => ({ ...f, paymentMethod: e.target.value }))}><option value="Pix">Pix / Boleto</option>{cards.map(c => <option key={c.id} value={c.id}>Cartão: {c.name}</option>)}</select>
-                  <div className="flex gap-2">
-                    <CurrencyInput className="ledger-input w-full font-mono text-xs" value={editForm.value} onChange={val => setEditForm(f => ({ ...f, value: val }))} />
-                    <input type="number" className="ledger-input w-20 text-xs text-center" value={editForm.total} onChange={e => setEditForm(f => ({ ...f, total: e.target.value }))} placeholder="Meses" />
-                    {editForm.paymentMethod === 'Pix' && <input type="number" className="ledger-input w-16 text-xs text-center" value={editForm.dueDay} onChange={e => setEditForm(f => ({ ...f, dueDay: e.target.value }))} placeholder="Dia" />}
-                  </div>
-                  <div className="flex gap-2 mt-2"><button onClick={() => saveEdit(inst.id)} className="flex-1 ledger-btn-primary py-1.5 text-xs flex justify-center items-center gap-1"><Check size={14} /> Salvar</button><button onClick={() => setEditingId(null)} className="flex-1 ledger-btn-outline py-1.5 text-xs flex justify-center items-center gap-1"><X size={14} /> Cancelar</button></div>
-                </motion.div>
+                <motion.div key={inst.id} className="p-3 bg-muted/30 border border-border rounded-lg space-y-2"><input type="text" className="ledger-input w-full text-xs" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} /><select className="ledger-input w-full text-xs bg-background" value={editForm.paymentMethod} onChange={e => setEditForm(f => ({ ...f, paymentMethod: e.target.value }))}><option value="Pix">Pix / Boleto</option>{cards.map(c => <option key={c.id} value={c.id}>Cartão: {c.name}</option>)}</select><div className="flex gap-2"><CurrencyInput className="ledger-input w-full font-mono text-xs" value={editForm.value} onChange={val => setEditForm(f => ({ ...f, value: val }))} /><input type="number" className="ledger-input w-20 text-xs text-center" value={editForm.total} onChange={e => setEditForm(f => ({ ...f, total: e.target.value }))} placeholder="Meses" />{editForm.paymentMethod === 'Pix' && <input type="number" className="ledger-input w-16 text-xs text-center" value={editForm.dueDay} onChange={e => setEditForm(f => ({ ...f, dueDay: e.target.value }))} placeholder="Dia" />}</div><div className="flex gap-2 mt-2"><button onClick={() => saveEdit(inst.id)} className="flex-1 ledger-btn-primary py-1.5 text-xs flex justify-center items-center gap-1"><Check size={14} /> Salvar</button><button onClick={() => setEditingId(null)} className="flex-1 ledger-btn-outline py-1.5 text-xs flex justify-center items-center gap-1"><X size={14} /> Cancelar</button></div></motion.div>
               );
             }
 
             return (
-              <motion.div key={inst.id} className="flex items-center gap-2 group min-w-0 p-1">
-                {isPix ? <input type="checkbox" checked={isPaid} onChange={() => onTogglePaid(inst.id)} className="ledger-checkbox shrink-0" /> : <div className="w-4 h-4 shrink-0 flex items-center justify-center"><CreditCard size={12} className="text-muted-foreground/50" /></div>}
-                <div className="flex-1 min-w-0 flex flex-col"><span className={`text-sm truncate ${(isPaid && isPix) ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{inst.name}</span><span className="flex items-center gap-1 text-[10px] text-muted-foreground">Parc. {num}/{inst.totalMonths} • {cardName} {isPix && `(Dia ${inst.dueDay || 1})`}</span></div>
-                <div className="relative shrink-0 w-24"><span className="font-mono text-sm font-semibold text-foreground block text-right pr-2">{formatCurrency(inst.monthlyValue)}</span></div>
-                <div className="flex opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><button type="button" onClick={() => startEdit(inst)} className="p-1.5 text-muted-foreground hover:text-primary"><Edit2 size={14} /></button><button type="button" onClick={() => onRemove(inst.id)} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button></div>
+              <motion.div key={inst.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border group mb-2">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className="w-4 flex items-center justify-center shrink-0">
+                    {isPix ? <input type="checkbox" checked={isPaid} onChange={() => onTogglePaid(inst.id)} className="ledger-checkbox" /> : <CreditCard size={14} className="text-muted-foreground/50" />}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className={`text-sm font-medium truncate ${(isPaid && isPix) ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{inst.name}</span>
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">Parc. {num}/{inst.totalMonths} • {cardName} {isPix && `(Dia ${inst.dueDay || 1})`}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0 pl-2">
+                  <span className="font-mono text-sm font-semibold text-foreground">{formatCurrency(inst.monthlyValue)}</span>
+                  <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                    <button type="button" onClick={() => startEdit(inst)} className="p-1.5 text-muted-foreground hover:text-primary"><Edit2 size={14} /></button>
+                    <button type="button" onClick={() => onRemove(inst.id)} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
+                  </div>
+                </div>
               </motion.div>
             );
           })}
         </AnimatePresence>
         {installments.length === 0 && <p className="text-xs text-muted-foreground italic py-2">Nenhuma compra parcelada ativa.</p>}
       </div>
-      {installments.length > 0 && <div className="mt-4 pt-4 border-t border-border flex justify-between items-center text-sm"><span className="font-medium text-muted-foreground">Total Parcelado:</span><span className="font-bold text-foreground">{formatCurrency(total)}</span></div>}
+
+      {installments.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-border flex justify-between items-center text-sm">
+          <span className="font-medium text-muted-foreground">Total Parcelado:</span>
+          <span className="font-bold text-foreground">{formatCurrency(total)}</span>
+        </div>
+      )}
     </section>
   );
 }
