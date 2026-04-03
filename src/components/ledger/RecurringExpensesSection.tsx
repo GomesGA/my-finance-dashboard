@@ -12,7 +12,7 @@ interface Props {
   onSoftDelete: (id: string) => void; onTogglePaid: (id: string) => void; onUpdateValue: (id: string, value: number) => void;
 }
 
-export function RecurringExpensesSection({ recurring, monthData, onAdd, onEdit, onSoftDelete, onTogglePaid }: Props) {
+export function RecurringExpensesSection({ recurring, monthData, onAdd, onEdit, onSoftDelete, onTogglePaid, onUpdateValue }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', value: 0, dueDay: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -25,7 +25,7 @@ export function RecurringExpensesSection({ recurring, monthData, onAdd, onEdit, 
   const total = recurring.reduce((acc, re) => acc + (monthData.recurringValueOverrides[re.id] ?? re.value), 0);
 
   return (
-    <section className="ledger-card p-6 flex flex-col h-full">
+    <section className="ledger-card p-6">
       <div className="flex justify-between items-center mb-5">
         <h2 className="font-semibold flex items-center gap-2 text-foreground"><Repeat size={18} className="text-muted-foreground" /> Despesas Recorrentes</h2>
         <button type="button" onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1"><Plus size={14} /> Adicionar</button>
@@ -42,7 +42,7 @@ export function RecurringExpensesSection({ recurring, monthData, onAdd, onEdit, 
         )}
       </AnimatePresence>
 
-      <div className="space-y-2 flex-1">
+      <div className="space-y-2">
         <AnimatePresence initial={false}>
           {recurring.map(re => {
             const isEditing = editingId === re.id;

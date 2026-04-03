@@ -17,13 +17,13 @@ export function CardBillsSection({ cards, onAdd, onUpdate, onEdit, onRemove }: P
   const total = cards.reduce((acc, card) => acc + card.value, 0);
 
   return (
-    <section className="ledger-card p-6 flex flex-col h-full">
+    <section className="ledger-card p-6">
       <div className="flex justify-between items-center mb-5">
         <h2 className="font-semibold flex items-center gap-2 text-foreground"><CreditCard size={18} className="text-muted-foreground" /> Faturas de Cartão</h2>
         <button type="button" onClick={onAdd} className="ledger-btn-outline flex items-center gap-1"><Plus size={14} /> Novo Cartão</button>
       </div>
 
-      <div className="space-y-2 flex-1">
+      <div className="space-y-2">
         <AnimatePresence initial={false}>
           {cards.map(card => {
             const isEditing = editingId === card.id;

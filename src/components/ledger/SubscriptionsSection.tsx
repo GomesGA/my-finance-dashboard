@@ -12,7 +12,7 @@ interface Props {
   onSoftDelete: (id: string) => void; onTogglePaid: (id: string) => void; onUpdateValue: (id: string, value: number) => void;
 }
 
-export function SubscriptionsSection({ subscriptions, monthData, cards, onAdd, onEdit, onSoftDelete, onTogglePaid }: Props) {
+export function SubscriptionsSection({ subscriptions, monthData, cards, onAdd, onEdit, onSoftDelete, onTogglePaid, onUpdateValue }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', value: 0, dueDay: '', paymentMethod: 'Pix' });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export function SubscriptionsSection({ subscriptions, monthData, cards, onAdd, o
   const saveEdit = (id: string) => { onEdit(id, editForm.name, editForm.value, Number(editForm.dueDay) || 1, editForm.paymentMethod); setEditingId(null); };
 
   return (
-    <section className="ledger-card p-6 flex flex-col h-full">
+    <section className="ledger-card p-6">
       <div className="flex justify-between items-center mb-5">
         <h2 className="font-semibold flex items-center gap-2 text-foreground"><Tv size={18} className="text-muted-foreground" /> Assinaturas e Serviços</h2>
         <button type="button" onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1"><Plus size={14} /> Adicionar</button>
@@ -44,7 +44,7 @@ export function SubscriptionsSection({ subscriptions, monthData, cards, onAdd, o
         )}
       </AnimatePresence>
 
-      <div className="space-y-2 flex-1">
+      <div className="space-y-2">
         <AnimatePresence initial={false}>
           {subscriptions.map(sub => {
             const isEditing = editingId === sub.id;
@@ -52,7 +52,7 @@ export function SubscriptionsSection({ subscriptions, monthData, cards, onAdd, o
             const currentValue = monthData.subscriptionValueOverrides[sub.id] ?? sub.value;
             const isFree = sub.paymentMethod === 'Free';
             const isPix = !sub.paymentMethod || sub.paymentMethod === 'Pix';
-            const cardName = isFree ? 'Incluso' : (isPix ? 'Pix' : (cards.find(c => c.id === sub.paymentMethod)?.name || 'Cartão'));
+            const cardName = isFree ? 'Incluso/Emprestado' : (isPix ? 'Pix' : (cards.find(c => c.id === sub.paymentMethod)?.name || 'Cartão'));
 
             if (isEditing) {
               return (

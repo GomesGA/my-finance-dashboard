@@ -25,10 +25,10 @@ export function InstallmentsSection({ installments, monthKey, cards, getNumber, 
   const total = installments.reduce((acc, inst) => acc + inst.monthlyValue, 0);
 
   return (
-    <section className="ledger-card p-6 flex flex-col h-full">
+    <section className="ledger-card p-6">
       <div className="flex justify-between items-center mb-5">
         <div><h2 className="font-semibold flex items-center gap-2 text-foreground"><ShoppingBag size={18} className="text-muted-foreground" /> Compras Parceladas</h2></div>
-        <button type="button" onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1"><Plus size={14} /> Nova</button>
+        <button type="button" onClick={() => setShowForm(true)} className="ledger-btn-outline flex items-center gap-1"><Plus size={14} /> Nova Compra</button>
       </div>
 
       <AnimatePresence>
@@ -47,7 +47,7 @@ export function InstallmentsSection({ installments, monthKey, cards, getNumber, 
         )}
       </AnimatePresence>
 
-      <div className="space-y-2 flex-1">
+      <div className="space-y-2">
         <AnimatePresence initial={false}>
           {installments.map(inst => {
             const isEditing = editingId === inst.id; const num = getNumber(inst); const isPix = !inst.paymentMethod || inst.paymentMethod === 'Pix'; const isPaid = inst.paidMonths.includes(monthKey); const cardName = isPix ? 'Pix' : (cards.find(c => c.id === inst.paymentMethod)?.name || 'Cartão');
