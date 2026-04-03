@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { TrendingUp, ArrowUpRight, ArrowDownLeft, RefreshCw, X } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownLeft, RefreshCw, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '@/lib/format';
@@ -16,18 +16,25 @@ export function InvestmentsTab({ ledger }: Props) {
   
   // Controle do Formulário de Rendimento
   const [showYieldForm, setShowYieldForm] = useState(false);
+  const [yieldDirection, setYieldDirection] = useState<'positive' | 'negative'>('positive');
   const [yieldForm, setYieldForm] = useState({ type: 'CDB' as 'CDB' | 'Bitcoin', value: 0 });
 
   const handleYieldSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (yieldForm.value <= 0) return;
-    // Lança automaticamente no dia 1º do mês que você estiver visualizando
-    ledger.addInvestment(yieldForm.type, 'Rendimento mensal', yieldForm.value, 'yield', `${ledger.monthKey}-01`);
+    
+    // Se for prejuízo, mandamos o valor negativo para a matemática bater!
+    const finalValue = yieldDirection === 'positive' ? yieldForm.value : -yieldForm.value;
+    const desc = yieldDirection === 'positive' ? 'Lucro do mês' : 'Desvalorização';
+    
+    ledger.addInvestment(yieldForm.type, desc, finalValue, 'yield', `${ledger.monthKey}-01`);
+    
     setYieldForm({ type: 'CDB', value: 0 });
+    setYieldDirection('positive');
     setShowYieldForm(false);
   };
 
-  // Calcula os totais por tipo (Aportes + Rendimentos - Resgates)
+  // Calcula os totais por tipo (Aportes + Rendimentos (lucro/prejuízo) - Resgates)
   const totals = useMemo(() => {
     const cdb = allInvestments
       .filter(i => i.type === 'CDB')
@@ -68,20 +75,31 @@ export function InvestmentsTab({ ledger }: Props) {
       {/* Botão de Ajuste no Topo */}
       <div className="flex justify-end">
          <button onClick={() => setShowYieldForm(true)} className="ledger-btn-outline flex items-center gap-2 hover:border-blue-500/50 hover:text-blue-500 bg-card">
-           <RefreshCw size={14} /> Lançar Rendimento
+           <RefreshCw size={14} /> Ajustar Rentabilidade
          </button>
       </div>
 
       {/* Formulário de Lançamento de Rendimento */}
       <AnimatePresence>
         {showYieldForm && (
-          <motion.form initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} onSubmit={handleYieldSubmit} className="p-5 bg-muted rounded-lg border border-border space-y-4">
+          <motion.form initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} onSubmit={handleYieldSubmit} className="p-5 bg-muted rounded-lg border border-border space-y-4 overflow-hidden">
             <div className="flex justify-between items-center">
               <span className="text-sm font-semibold text-foreground flex items-center gap-2">
                  <RefreshCw size={16} className="text-blue-500" /> Atualizar Rentabilidade do Mês
               </span>
               <button type="button" onClick={() => setShowYieldForm(false)} className="text-muted-foreground hover:text-foreground"><X size={16} /></button>
             </div>
+
+            {/* Alternar entre Lucro e Prejuízo */}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setYieldDirection('positive')} className={`flex-1 text-xs py-2 rounded-lg border transition-colors ${yieldDirection === 'positive' ? 'bg-blue-500 text-white border-blue-500' : 'border-border text-foreground hover:bg-muted'}`}>
+                Lucro (+)
+              </button>
+              <button type="button" onClick={() => setYieldDirection('negative')} className={`flex-1 text-xs py-2 rounded-lg border transition-colors ${yieldDirection === 'negative' ? 'bg-orange-500 text-white border-orange-500' : 'border-border text-foreground hover:bg-muted'}`}>
+                Desvalorização (-)
+              </button>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3">
               <select className="ledger-input sm:w-1/3 bg-background" value={yieldForm.type} onChange={e => setYieldForm(f => ({ ...f, type: e.target.value as 'CDB' | 'Bitcoin' }))}>
                 <option value="CDB">CDB</option>
@@ -146,28 +164,37 @@ export function InvestmentsTab({ ledger }: Props) {
           <h2 className="font-semibold text-foreground">Movimentações do Mês</h2>
         </div>
         <div className="divide-y divide-border">
-          {monthInvestments.map((inv: Investment) => (
-            <div key={inv.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors">
-              <div className="flex items-center gap-3">
-                {inv.action === 'deposit' ? (
-                  <div className="p-2 bg-destructive/10 rounded-full"><ArrowUpRight size={14} className="text-destructive" /></div>
-                ) : inv.action === 'withdraw' ? (
-                  <div className="p-2 bg-success/10 rounded-full"><ArrowDownLeft size={14} className="text-success" /></div>
-                ) : (
-                  <div className="p-2 bg-blue-500/10 rounded-full"><RefreshCw size={14} className="text-blue-500" /></div>
-                )}
-                <div>
-                  <p className="text-sm font-medium text-foreground">{inv.description || inv.type}</p>
-                  <p className="text-[10px] text-muted-foreground uppercase">
-                    {inv.type} · {inv.action === 'deposit' ? 'Aporte' : inv.action === 'withdraw' ? 'Resgate' : 'Rendimento'}
-                  </p>
+          {monthInvestments.map((inv: Investment) => {
+            const isLoss = inv.action === 'yield' && inv.value < 0;
+            const isProfit = inv.action === 'yield' && inv.value >= 0;
+
+            return (
+              <div key={inv.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  {inv.action === 'deposit' ? (
+                    <div className="p-2 bg-destructive/10 rounded-full" title="Aporte (Saiu da Conta)"><ArrowUpRight size={14} className="text-destructive" /></div>
+                  ) : inv.action === 'withdraw' ? (
+                    <div className="p-2 bg-success/10 rounded-full" title="Resgate (Voltou pra Conta)"><ArrowDownLeft size={14} className="text-success" /></div>
+                  ) : isProfit ? (
+                    <div className="p-2 bg-blue-500/10 rounded-full" title="Lucro"><TrendingUp size={14} className="text-blue-500" /></div>
+                  ) : (
+                    <div className="p-2 bg-orange-500/10 rounded-full" title="Desvalorização"><TrendingDown size={14} className="text-orange-500" /></div>
+                  )}
+                  
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{inv.description || inv.type}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase">
+                      {inv.type} · {inv.action === 'deposit' ? 'Aporte' : inv.action === 'withdraw' ? 'Resgate' : (isProfit ? 'Lucro' : 'Desvalorização')}
+                    </p>
+                  </div>
                 </div>
+                
+                <span className={`font-mono text-sm font-bold ${inv.action === 'withdraw' ? 'text-success' : inv.action === 'deposit' ? 'text-destructive' : (isProfit ? 'text-blue-500' : 'text-orange-500')}`}>
+                  {inv.action === 'deposit' ? '-' : inv.action === 'withdraw' ? '+' : (isProfit ? '+' : '-')} {formatCurrency(Math.abs(inv.value))}
+                </span>
               </div>
-              <span className={`font-mono text-sm font-bold ${inv.action === 'withdraw' ? 'text-success' : inv.action === 'deposit' ? 'text-destructive' : 'text-blue-500'}`}>
-                {inv.action === 'deposit' ? '-' : '+'} {formatCurrency(inv.value)}
-              </span>
-            </div>
-          ))}
+            );
+          })}
           {monthInvestments.length === 0 && (
             <p className="px-5 py-6 text-center text-xs text-muted-foreground italic">Nenhuma movimentação neste mês.</p>
           )}
