@@ -2,7 +2,7 @@ export interface Expense { id: string; name: string; value: number; paid: boolea
 export interface RecurringExpense { id: string; name: string; value: number; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; }
 export interface CardBill { id: string; name: string; value: number; paid: boolean; dueDay?: number; paymentDate?: string; createdAt?: number; }
 export interface ExtraIncome { id: string; description: string; value: number; createdAt?: number; }
-export interface Investment { id: string; type: 'CDB' | 'Bitcoin'; description: string; value: number; date: string; action: 'deposit' | 'withdraw'; createdAt?: number; }
+export interface Investment { id: string; type: 'CDB' | 'Bitcoin'; description: string; value: number; date: string; action: 'deposit' | 'withdraw' | 'yield'; createdAt?: number; }
 export interface Goal { id: string; name: string; targetValue: number; purchased: boolean; createdAt?: number; }
 export interface LedgerEntry { id: string; date: string; description: string; value: number; source: string; createdAt?: number; }
 export interface ManualEntry { id: string; date: string; description: string; value: number; createdAt?: number; }

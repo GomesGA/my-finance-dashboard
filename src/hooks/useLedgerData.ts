@@ -134,8 +134,7 @@ export function useLedgerData() {
   const updateRecurringValue = (id: string, value: number) => updateMonthData(m => ({ ...m, recurringValueOverrides: { ...m.recurringValueOverrides, [id]: value } }));
   const updateRecurringDate = (id: string, date: string) => updateMonthData(m => ({ ...m, recurringDateOverrides: { ...(m.recurringDateOverrides || {}), [id]: date } }));
 
-  const addInvestment = (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw', date?: string) => { const item: Investment = { id: crypto.randomUUID(), type, description, value, date: date || monthKey, action, createdAt: Date.now() }; updateMonthData(m => ({ ...m, investments: [...(m.investments || []), item] })); };
-  const removeInvestment = (id: string) => updateMonthData(m => ({ ...m, investments: (m.investments || []).filter(i => i.id !== id) }));
+  const addInvestment = (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw' | 'yield', date?: string) => { const item: Investment = { id: crypto.randomUUID(), type, description, value, date: date || monthKey, action, createdAt: Date.now() }; updateMonthData(m => ({ ...m, investments: [...(m.investments || []), item] })); };  const removeInvestment = (id: string) => updateMonthData(m => ({ ...m, investments: (m.investments || []).filter(i => i.id !== id) }));
   const addManualEntry = (date: string, description: string, value: number) => { const item: ManualEntry = { id: crypto.randomUUID(), date, description, value, createdAt: Date.now() }; updateMonthData(m => ({ ...m, manualEntries: [...(m.manualEntries || []), item] })); };
   const removeManualEntry = (id: string) => updateMonthData(m => ({ ...m, manualEntries: (m.manualEntries || []).filter(e => e.id !== id) }));
   const addManualExit = (date: string, description: string, value: number) => { const item: ManualEntry = { id: crypto.randomUUID(), date, description, value, createdAt: Date.now() }; updateMonthData(m => ({ ...m, manualExits: [...(m.manualExits || []), item] })); };
@@ -165,7 +164,7 @@ export function useLedgerData() {
     else if (source === 'subscription') toggleSubscriptionPaid(id);
     else if (source === 'installment') toggleInstallmentPaid(id); // NOVO
     else if (source === 'salary') setIncome(0);
-    else if (source === 'investment-deposit' || source === 'investment-withdraw') removeInvestment(id);
+    else if (source === 'investment-deposit' || source === 'investment-withdraw' || source === 'investment-yield') removeInvestment(id);
     else if (source === 'extra-income') removeExtraIncome(id);
     else if (source === 'extraordinary') removeExtraordinaryExpense(id);
   };
@@ -178,7 +177,7 @@ export function useLedgerData() {
     else if (source === 'recurring') { updateRecurringValue(id, value); updateRecurringDate(id, date); setData(prev => ({ ...prev, recurringExpenses: prev.recurringExpenses.map(re => re.id === id ? { ...re, name: description } : re) })); } 
     else if (source === 'subscription') { updateSubscriptionValue(id, value); updateSubscriptionDate(id, date); setData(prev => ({ ...prev, subscriptions: prev.subscriptions.map(s => s.id === id ? { ...s, name: description } : s) })); }
     else if (source === 'salary') setIncome(value, date);
-    else if (source === 'investment-deposit' || source === 'investment-withdraw') updateMonthData(m => ({ ...m, investments: (m.investments||[]).map(inv => inv.id === id ? { ...inv, date, description: description.replace(/^(Aporte|Resgate) (CDB|Bitcoin)( - )?/, ''), value } : inv) }));
+    else if (source === 'investment-deposit' || source === 'investment-withdraw' || source === 'investment-yield') updateMonthData(m => ({ ...m, investments: (m.investments||[]).map(inv => inv.id === id ? { ...inv, date, description: description.replace(/^(Aporte|Resgate|Rendimento) (CDB|Bitcoin)( - )?/, ''), value } : inv) }));  
   };
 
   const sortEntriesByDateAndQueue = (a: LedgerEntry, b: LedgerEntry) => { const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime(); if (dateDiff !== 0) return dateDiff; return (a.createdAt || 0) - (b.createdAt || 0); };
