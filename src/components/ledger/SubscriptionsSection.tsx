@@ -112,7 +112,7 @@ export function SubscriptionsSection({ subscriptions, monthData, cards, onAdd, o
                   <span className={`text-sm truncate ${isPaid ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{sub.name}</span>
                   <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     {isPix ? <Banknote size={10} /> : <CreditCard size={10} />}
-                    {cardName} (Venc. {sub.dueDay})
+                    {cardName} (Pag. {sub.dueDay})
                   </span>
                 </div>
                 <div className="relative shrink-0 w-24">

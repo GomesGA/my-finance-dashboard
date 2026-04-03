@@ -36,7 +36,7 @@ export function DashboardTab({ ledger }: Props) {
         <InstallmentsSection
           installments={ledger.activeInstallments}
           monthKey={ledger.monthKey}
-          cards={ledger.data.cards} // 👇 ADICIONE ESTA LINHA
+          cards={ledger.data.cards}
           getNumber={ledger.getInstallmentNumber}
           onAdd={ledger.addInstallment}
           onEdit={ledger.editInstallment}
@@ -71,6 +71,7 @@ export function DashboardTab({ ledger }: Props) {
           recurring={ledger.activeRecurringExpenses}
           monthData={ledger.currentMonthData}
           onAdd={ledger.addRecurringExpense}
+          onEdit={ledger.editRecurringExpense} 
           onSoftDelete={ledger.softDeleteRecurringExpense}
           onTogglePaid={ledger.toggleRecurringPaid}
           onUpdateValue={ledger.updateRecurringValue}
@@ -80,6 +81,7 @@ export function DashboardTab({ ledger }: Props) {
           cards={ledger.computedCardBills}
           onAdd={ledger.addCard}
           onUpdate={ledger.updateCard}
+          onEdit={ledger.editCard}
           onRemove={ledger.removeCard}
         />
 
