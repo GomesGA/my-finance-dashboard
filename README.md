@@ -56,18 +56,21 @@ No painel do Supabase, execute o seguinte SQL no SQL Editor para criar a tabela 
 ```sql
 
 -- Cria a tabela vinculada ao sistema de utilizadores
-CREATE TABLE user_ledger (
+CREATE TABLE public.user_ledger (
   user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  dados JSONB NOT NULL DEFAULT '{"monthlyData": {}, "installments": [], "goals": [], "recurringExpenses": []}'::jsonb
+  dados JSONB NOT NULL DEFAULT '{"monthlyData": {}, "installments": [], "goals": [], "recurringExpenses": [], "cards": [], "subscriptions": []}'::jsonb
 );
 
--- Ativa a segurança (RLS)
-ALTER TABLE user_ledger ENABLE ROW LEVEL SECURITY;
+-- Ativa a segurança em nível de linha (RLS)
+ALTER TABLE public.user_ledger ENABLE ROW LEVEL SECURITY;
 
--- Políticas de segurança
-CREATE POLICY "Utilizadores podem ver os seus próprios dados" ON user_ledger FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Utilizadores podem inserir os seus próprios dados" ON user_ledger FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Utilizadores podem atualizar os seus próprios dados" ON user_ledger FOR UPDATE USING (auth.uid() = user_id);
+-- Política de segurança unificada (Cobre SELECT, INSERT, UPDATE e DELETE)
+CREATE POLICY "Usuários só acessam e modificam os seus próprios dados" 
+ON public.user_ledger 
+FOR ALL 
+TO authenticated 
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
 
 ```
 ### 5. Iniciar o Servidor de Desenvolvimento
