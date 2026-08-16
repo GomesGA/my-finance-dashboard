@@ -15,7 +15,7 @@ interface Props {
 
 export function DashboardTab({ ledger }: Props) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr_1fr] gap-6">
       {/* Coluna 1: Esquerda (Resumo, Salário, Investimentos e Parcelas) */}
       <div className="space-y-6">
         <SummaryCards
@@ -27,7 +27,11 @@ export function DashboardTab({ ledger }: Props) {
         <IncomeSection
           income={ledger.currentMonthData.income}
           incomeDate={ledger.currentMonthData.incomeDate}
+          incomeTime={ledger.currentMonthData.incomeTime}
+          incomeBankAccountId={ledger.currentMonthData.incomeBankAccountId}
           monthKey={ledger.monthKey}
+          bankAccounts={ledger.bankAccounts}
+          onAddBankAccount={ledger.addBankAccount}
           onChange={ledger.setIncome}
         />
 
@@ -37,11 +41,16 @@ export function DashboardTab({ ledger }: Props) {
           installments={ledger.activeInstallments}
           monthKey={ledger.monthKey}
           cards={ledger.data.cards}
+          bankAccounts={ledger.bankAccounts}
+          categories={ledger.categories}
           getNumber={ledger.getInstallmentNumber}
           onAdd={ledger.addInstallment}
           onEdit={ledger.editInstallment}
           onRemove={ledger.removeInstallment}
-          onTogglePaid={ledger.toggleInstallmentPaid}
+          onPay={ledger.payInstallment}
+          onUnpay={ledger.unpayInstallment}
+          onAddBankAccount={ledger.addBankAccount}
+          onAddCategory={ledger.addCategory}
         />
       </div>
 
@@ -51,15 +60,21 @@ export function DashboardTab({ ledger }: Props) {
           title="Entradas"
           entries={ledger.computedEntries}
           type="income"
+          bankAccounts={ledger.bankAccounts}
+          onAddBankAccount={ledger.addBankAccount}
           onAddManual={ledger.addManualEntry}
           onRemoveEntry={ledger.removeLedgerEntry}
           onEditEntry={ledger.editLedgerEntry}
         />
-        
+
         <LedgerTable
           title="Saídas"
           entries={ledger.computedExits}
           type="expense"
+          bankAccounts={ledger.bankAccounts}
+          onAddBankAccount={ledger.addBankAccount}
+          categories={ledger.categories}
+          onAddCategory={ledger.addCategory}
           onAddManual={ledger.addManualExit}
           onRemoveEntry={ledger.removeLedgerEntry}
           onEditEntry={ledger.editLedgerEntry}
@@ -71,32 +86,47 @@ export function DashboardTab({ ledger }: Props) {
         <RecurringExpensesSection
           recurring={ledger.activeRecurringExpenses}
           monthData={ledger.currentMonthData}
+          bankAccounts={ledger.bankAccounts}
+          categories={ledger.categories}
           onAdd={ledger.addRecurringExpense}
-          onEdit={ledger.editRecurringExpense} 
+          onEdit={ledger.editRecurringExpense}
           onSoftDelete={ledger.softDeleteRecurringExpense}
-          onTogglePaid={ledger.toggleRecurringPaid}
+          onPay={ledger.payRecurringExpense}
+          onUnpay={ledger.unpayRecurringExpense}
           onUpdateValue={ledger.updateRecurringValue}
+          onToggleActive={ledger.toggleRecurringActive}
+          onAddBankAccount={ledger.addBankAccount}
+          onAddCategory={ledger.addCategory}
         />
 
         <CardBillsSection
           cards={ledger.computedCardBills}
+          bankAccounts={ledger.bankAccounts}
+          categories={ledger.categories}
           onAdd={ledger.addCard}
           onUpdate={ledger.updateCard}
           onEdit={ledger.editCard}
           onRemove={ledger.removeCard}
+          onAddBankAccount={ledger.addBankAccount}
+          onAddCategory={ledger.addCategory}
         />
 
         <SubscriptionsSection
           subscriptions={ledger.activeSubscriptions}
           monthData={ledger.currentMonthData}
           cards={ledger.data.cards}
+          bankAccounts={ledger.bankAccounts}
+          categories={ledger.categories}
           onAdd={ledger.addSubscription}
           onEdit={ledger.editSubscription}
           onSoftDelete={ledger.softDeleteSubscription}
-          onTogglePaid={ledger.toggleSubscriptionPaid}
+          onPay={ledger.paySubscription}
+          onUnpay={ledger.unpaySubscription}
           onUpdateValue={ledger.updateSubscriptionValue}
+          onAddBankAccount={ledger.addBankAccount}
+          onAddCategory={ledger.addCategory}
         />
-        
+
       </div>
     </div>
   );

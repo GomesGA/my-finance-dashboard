@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Sun, Moon, LayoutDashboard, Target, TrendingUp, Landmark } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sun, Moon, LayoutDashboard, Target, TrendingUp, Landmark, ShoppingBag, Tag } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { TabId } from '@/pages/Index';
@@ -15,6 +15,8 @@ interface Props {
 
 const tabs: { id: TabId; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'installments', label: 'Parcelas', icon: ShoppingBag },
+  { id: 'categories', label: 'Categorias', icon: Tag },
   { id: 'goals', label: 'Metas', icon: Target },
   { id: 'investments', label: 'Investimentos', icon: TrendingUp },
 ];
@@ -22,7 +24,7 @@ const tabs: { id: TabId; label: string; icon: typeof LayoutDashboard }[] = [
 export function MonthSelector({ currentDate, onPrev, onNext, dark, onToggleTheme, activeTab, onTabChange }: Props) {
   return (
     <header className="sticky top-0 z-10 bg-card/80 backdrop-blur-md border-b border-border">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-[1900px] mx-auto px-4 lg:px-8">
         {/* Top row: logo + month selector + theme */}
         <div className="h-14 flex items-center justify-between">
           

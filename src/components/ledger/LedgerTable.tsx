@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Plus, Trash2, X, Edit2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { LedgerEntry } from '@/types/ledger';
+import type { LedgerEntry, BankAccount, Category } from '@/types/ledger';
 import { formatCurrency } from '@/lib/format';
+import { BankAccountField } from './BankAccountField';
+import { CategoryField } from './CategoryField';
 
 interface Props {
   title: string;
   entries: LedgerEntry[];
   type: 'income' | 'expense';
-  onAddManual?: (date: string, description: string, value: number) => void;
+  bankAccounts?: BankAccount[];
+  onAddBankAccount?: (name: string, kind: 'PF' | 'PJ') => BankAccount;
+  categories?: Category[];
+  onAddCategory?: (name: string, color?: string) => Category;
+  onAddManual?: (date: string, description: string, value: number, paymentMethod: string, bankAccountId?: string, time?: string, categoryId?: string) => void;
   onRemoveEntry?: (id: string, source: string) => void;
   onEditEntry?: (id: string, source: string, date: string, desc: string, value: number) => void;
 }
@@ -18,11 +24,13 @@ const parseCurrencyInput = (val: string) => {
   return Number(val);
 };
 
-export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, onEditEntry }: Props) {
+const PAYMENT_METHODS = ['Pix', 'Boleto', 'TED', 'Outros', 'Cartão'];
+
+export function LedgerTable({ title, entries, type, bankAccounts = [], onAddBankAccount, categories = [], onAddCategory, onAddManual, onRemoveEntry, onEditEntry }: Props) {
   const total = entries.reduce((a, c) => a + c.value, 0);
   const isIncome = type === 'income';
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ date: '', description: '', value: '' });
+  const [form, setForm] = useState({ date: '', description: '', value: '', paymentMethod: 'Pix', bankAccountId: '', time: '', categoryId: '' });
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ date: '', description: '', value: '' });
@@ -38,8 +46,9 @@ export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, 
     if (!form.date || !form.description || !form.value) return;
     const numericValue = parseCurrencyInput(form.value);
     if (isNaN(numericValue)) return;
-    onAddManual?.(form.date, form.description, numericValue);
-    setForm({ date: '', description: '', value: '' });
+    const isCard = form.paymentMethod === 'Cartão';
+    onAddManual?.(form.date, form.description, numericValue, form.paymentMethod, isCard ? undefined : form.bankAccountId, isCard ? undefined : form.time, isIncome ? undefined : (form.categoryId || undefined));
+    setForm({ date: '', description: '', value: '', paymentMethod: 'Pix', bankAccountId: '', time: '', categoryId: '' });
     setShowForm(false);
   };
 
@@ -89,6 +98,28 @@ export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, 
                 <input type="text" inputMode="decimal" placeholder="0,00" className="ledger-input w-full font-mono pl-8" value={form.value} onChange={e => setForm(f => ({ ...f, value: formatTextToComma(e.target.value) }))} required />
               </div>
             </div>
+            <div className={`grid grid-cols-1 ${form.paymentMethod !== 'Cartão' ? 'sm:grid-cols-2' : ''} gap-4 mt-4`}>
+              <select className="ledger-input w-full min-w-0 bg-background" value={form.paymentMethod} onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))}>
+                {PAYMENT_METHODS.map(pm => <option key={pm} value={pm}>{pm}</option>)}
+              </select>
+              {form.paymentMethod !== 'Cartão' && (
+                <input type="time" className="ledger-input w-full min-w-0" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} title="Horário" />
+              )}
+            </div>
+            {(form.paymentMethod !== 'Cartão' && onAddBankAccount) || (!isIncome && onAddCategory) ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                {form.paymentMethod !== 'Cartão' && onAddBankAccount && (
+                  <div className="min-w-0">
+                    <BankAccountField value={form.bankAccountId} onChange={bankAccountId => setForm(f => ({ ...f, bankAccountId }))} bankAccounts={bankAccounts} onAddBankAccount={onAddBankAccount} label="Banco" />
+                  </div>
+                )}
+                {!isIncome && onAddCategory && (
+                  <div className="min-w-0">
+                    <CategoryField value={form.categoryId} onChange={categoryId => setForm(f => ({ ...f, categoryId }))} categories={categories} onAddCategory={onAddCategory} />
+                  </div>
+                )}
+              </div>
+            ) : null}
             <div className="flex justify-end mt-4">
               <button type="button" onClick={handleSubmit} className="ledger-btn-primary px-6 py-2 text-sm shadow-sm">Confirmar</button>
             </div>
@@ -100,10 +131,10 @@ export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, 
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/50">
-              <th className="text-left px-5 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Data</th>
-              <th className="text-left px-5 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</th>
-              <th className="text-right px-5 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Valor</th>
-              <th className="w-16 text-center px-2 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
+              <th className="w-14 text-left px-3 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Data</th>
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Descrição</th>
+              <th className="text-right px-3 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Valor</th>
+              <th className="w-14 text-center px-2 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -122,9 +153,14 @@ export function LedgerTable({ title, entries, type, onAddManual, onRemoveEntry, 
                   </tr>
                 ) : (
                   <motion.tr key={entry.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors group">
-                    <td className="px-5 py-3 text-muted-foreground font-mono text-xs">{entry.date.split('-').reverse().join('/')}</td>
-                    <td className="px-5 py-3 text-foreground">{entry.description}</td>
-                    <td className={`px-5 py-3 text-right font-mono font-semibold ${isIncome ? 'text-success' : 'text-destructive'}`}>
+                    <td className="px-3 py-3 text-muted-foreground font-mono text-xs whitespace-nowrap">
+                      <div className="flex flex-col leading-tight">
+                        <span>{entry.date.slice(5).split('-').reverse().join('/')}</span>
+                        {entry.time && <span className="text-[10px] text-muted-foreground/60">{entry.time}</span>}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-foreground">{entry.description}</td>
+                    <td className={`px-3 py-3 text-right font-mono font-semibold whitespace-nowrap ${isIncome ? 'text-success' : 'text-destructive'}`}>
                       {isIncome ? '+' : '-'} {formatCurrency(entry.value)}
                     </td>
                     <td className="px-2 py-3">

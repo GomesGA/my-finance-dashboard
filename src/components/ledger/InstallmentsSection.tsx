@@ -1,26 +1,33 @@
 import { useState } from 'react';
 import { ShoppingBag, Plus, Trash2, X, CreditCard, Edit2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Installment, Card } from '@/types/ledger';
+import type { Installment, Card, BankAccount, Category } from '@/types/ledger';
 import { formatCurrency } from '@/lib/format';
 import { CurrencyInput } from '@/components/CurrencyInput';
+import { PaymentModal } from './PaymentModal';
+import { CategoryField } from './CategoryField';
 
 interface Props {
-  installments: Installment[]; monthKey: string; cards: Card[]; getNumber: (inst: Installment) => number;
-  onAdd: (name: string, value: number, total: number, paymentMethod: string, dueDay: number) => void;
-  onEdit: (id: string, name: string, value: number, total: number, paymentMethod: string, dueDay: number) => void;
-  onRemove: (id: string) => void; onTogglePaid: (id: string) => void;
+  installments: Installment[]; monthKey: string; cards: Card[]; bankAccounts: BankAccount[]; categories: Category[]; getNumber: (inst: Installment) => number;
+  onAdd: (name: string, value: number, total: number, paymentMethod: string, categoryId?: string) => void;
+  onEdit: (id: string, name: string, value: number, total: number, paymentMethod: string, categoryId?: string) => void;
+  onRemove: (id: string) => void;
+  onPay: (id: string, bankAccountId: string, paidAtIso: string) => void;
+  onUnpay: (id: string) => void;
+  onAddBankAccount: (name: string, kind: 'PF' | 'PJ') => BankAccount;
+  onAddCategory: (name: string, color?: string) => Category;
 }
 
-export function InstallmentsSection({ installments, monthKey, cards, getNumber, onAdd, onEdit, onRemove, onTogglePaid }: Props) {
+export function InstallmentsSection({ installments, monthKey, cards, bankAccounts, categories, getNumber, onAdd, onEdit, onRemove, onPay, onUnpay, onAddBankAccount, onAddCategory }: Props) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', value: 0, total: '', paymentMethod: 'Pix', dueDay: '' });
+  const [form, setForm] = useState({ name: '', value: 0, total: '', paymentMethod: 'Pix', categoryId: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', value: 0, total: '', paymentMethod: 'Pix', dueDay: '' });
+  const [editForm, setEditForm] = useState({ name: '', value: 0, total: '', paymentMethod: 'Pix', categoryId: '' });
+  const [payingId, setPayingId] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!form.name || !form.value || !form.total) return; onAdd(form.name, form.value, Number(form.total), form.paymentMethod, Number(form.dueDay) || 1); setForm({ name: '', value: 0, total: '', paymentMethod: 'Pix', dueDay: '' }); setShowForm(false); };
-  const startEdit = (inst: Installment) => { setEditingId(inst.id); setEditForm({ name: inst.name, value: inst.monthlyValue, total: String(inst.totalMonths), paymentMethod: inst.paymentMethod || 'Pix', dueDay: String(inst.dueDay || 1) }); };
-  const saveEdit = (id: string) => { onEdit(id, editForm.name, editForm.value, Number(editForm.total), editForm.paymentMethod, Number(editForm.dueDay) || 1); setEditingId(null); };
+  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!form.name || !form.value || !form.total) return; onAdd(form.name, form.value, Number(form.total), form.paymentMethod, form.categoryId || undefined); setForm({ name: '', value: 0, total: '', paymentMethod: 'Pix', categoryId: '' }); setShowForm(false); };
+  const startEdit = (inst: Installment) => { setEditingId(inst.id); setEditForm({ name: inst.name, value: inst.monthlyValue, total: String(inst.totalMonths), paymentMethod: inst.paymentMethod || 'Pix', categoryId: inst.categoryId || '' }); };
+  const saveEdit = (id: string) => { onEdit(id, editForm.name, editForm.value, Number(editForm.total), editForm.paymentMethod, editForm.categoryId || undefined); setEditingId(null); };
 
   const total = installments.reduce((acc, inst) => acc + inst.monthlyValue, 0);
 
@@ -41,7 +48,7 @@ export function InstallmentsSection({ installments, monthKey, cards, getNumber, 
               <div className="relative col-span-2"><span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span><CurrencyInput placeholder="0,00" className="ledger-input w-full font-mono pl-7" value={form.value} onChange={val => setForm(f => ({ ...f, value: val }))} /></div>
               <input type="number" placeholder="Nº Parc." className="ledger-input w-full" value={form.total} onChange={e => setForm(f => ({ ...f, total: e.target.value }))} />
             </div>
-            {form.paymentMethod === 'Pix' && <input type="number" placeholder="Dia do Pagamento" className="ledger-input w-full" min={1} max={31} value={form.dueDay} onChange={e => setForm(f => ({ ...f, dueDay: e.target.value }))} />}
+            <CategoryField value={form.categoryId} onChange={categoryId => setForm(f => ({ ...f, categoryId }))} categories={categories} onAddCategory={onAddCategory} />
             <button type="submit" className="ledger-btn-primary w-full text-center">Confirmar</button>
           </motion.form>
         )}
@@ -54,7 +61,13 @@ export function InstallmentsSection({ installments, monthKey, cards, getNumber, 
 
             if (isEditing) {
               return (
-                <motion.div key={inst.id} className="p-3 bg-muted/30 border border-border rounded-lg space-y-2"><input type="text" className="ledger-input w-full text-xs" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} /><select className="ledger-input w-full text-xs bg-background" value={editForm.paymentMethod} onChange={e => setEditForm(f => ({ ...f, paymentMethod: e.target.value }))}><option value="Pix">Pix / Boleto</option>{cards.map(c => <option key={c.id} value={c.id}>Cartão: {c.name}</option>)}</select><div className="flex gap-2"><CurrencyInput className="ledger-input w-full font-mono text-xs" value={editForm.value} onChange={val => setEditForm(f => ({ ...f, value: val }))} /><input type="number" className="ledger-input w-20 text-xs text-center" value={editForm.total} onChange={e => setEditForm(f => ({ ...f, total: e.target.value }))} placeholder="Meses" />{editForm.paymentMethod === 'Pix' && <input type="number" className="ledger-input w-16 text-xs text-center" value={editForm.dueDay} onChange={e => setEditForm(f => ({ ...f, dueDay: e.target.value }))} placeholder="Dia" />}</div><div className="flex gap-2 mt-2"><button onClick={() => saveEdit(inst.id)} className="flex-1 ledger-btn-primary py-1.5 text-xs flex justify-center items-center gap-1"><Check size={14} /> Salvar</button><button onClick={() => setEditingId(null)} className="flex-1 ledger-btn-outline py-1.5 text-xs flex justify-center items-center gap-1"><X size={14} /> Cancelar</button></div></motion.div>
+                <motion.div key={inst.id} className="p-3 bg-muted/30 border border-border rounded-lg space-y-2">
+                  <input type="text" className="ledger-input w-full text-xs" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                  <select className="ledger-input w-full text-xs bg-background" value={editForm.paymentMethod} onChange={e => setEditForm(f => ({ ...f, paymentMethod: e.target.value }))}><option value="Pix">Pix / Boleto</option>{cards.map(c => <option key={c.id} value={c.id}>Cartão: {c.name}</option>)}</select>
+                  <div className="flex gap-2"><CurrencyInput className="ledger-input w-full font-mono text-xs" value={editForm.value} onChange={val => setEditForm(f => ({ ...f, value: val }))} /><input type="number" className="ledger-input w-20 text-xs text-center" value={editForm.total} onChange={e => setEditForm(f => ({ ...f, total: e.target.value }))} placeholder="Meses" /></div>
+                  <CategoryField value={editForm.categoryId} onChange={categoryId => setEditForm(f => ({ ...f, categoryId }))} categories={categories} onAddCategory={onAddCategory} label="" />
+                  <div className="flex gap-2 mt-2"><button onClick={() => saveEdit(inst.id)} className="flex-1 ledger-btn-primary py-1.5 text-xs flex justify-center items-center gap-1"><Check size={14} /> Salvar</button><button onClick={() => setEditingId(null)} className="flex-1 ledger-btn-outline py-1.5 text-xs flex justify-center items-center gap-1"><X size={14} /> Cancelar</button></div>
+                </motion.div>
               );
             }
 
@@ -62,11 +75,11 @@ export function InstallmentsSection({ installments, monthKey, cards, getNumber, 
               <motion.div key={inst.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border group mb-2">
                 <div className="flex items-center gap-3 overflow-hidden">
                   <div className="w-4 flex items-center justify-center shrink-0">
-                    {isPix ? <input type="checkbox" checked={isPaid} onChange={() => onTogglePaid(inst.id)} className="ledger-checkbox" /> : <CreditCard size={14} className="text-muted-foreground/50" />}
+                    {isPix ? <input type="checkbox" checked={isPaid} onChange={() => isPaid ? onUnpay(inst.id) : setPayingId(inst.id)} className="ledger-checkbox" /> : <CreditCard size={14} className="text-muted-foreground/50" />}
                   </div>
                   <div className="flex flex-col min-w-0">
                     <span className={`text-sm font-medium truncate ${(isPaid && isPix) ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{inst.name}</span>
-                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">Parc. {num}/{inst.totalMonths} • {cardName} {isPix && `(Dia ${inst.dueDay || 1})`}</span>
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">Parc. {num}/{inst.totalMonths} • {cardName}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0 pl-2">
@@ -89,6 +102,14 @@ export function InstallmentsSection({ installments, monthKey, cards, getNumber, 
           <span className="font-bold text-foreground">{formatCurrency(total)}</span>
         </div>
       )}
+
+      <PaymentModal
+        open={!!payingId}
+        onClose={() => setPayingId(null)}
+        onConfirm={(bankAccountId, paidAtIso) => payingId && onPay(payingId, bankAccountId, paidAtIso)}
+        bankAccounts={bankAccounts}
+        onAddBankAccount={onAddBankAccount}
+      />
     </section>
   );
 }
