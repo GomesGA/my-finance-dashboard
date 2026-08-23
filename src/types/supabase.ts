@@ -330,6 +330,8 @@ export type Database = {
           purchased: boolean
           target_value: number
           user_id: string
+          actual_paid_value: number | null
+          payment_date: string | null
         }
         Insert: {
           created_at?: string
@@ -338,6 +340,8 @@ export type Database = {
           purchased?: boolean
           target_value: number
           user_id: string
+          actual_paid_value?: number | null
+          payment_date?: string | null
         }
         Update: {
           created_at?: string
@@ -346,6 +350,8 @@ export type Database = {
           purchased?: boolean
           target_value?: number
           user_id?: string
+          actual_paid_value?: number | null
+          payment_date?: string | null
         }
         Relationships: []
       }
@@ -566,6 +572,8 @@ export type Database = {
           payment_method: string
           user_id: string
           value: number
+          observacao: string | null
+          pago_por_terceiros: boolean | null
         }
         Insert: {
           bank_account_id?: string | null
@@ -580,6 +588,8 @@ export type Database = {
           payment_method?: string
           user_id: string
           value: number
+          observacao?: string | null
+          pago_por_terceiros?: boolean | null
         }
         Update: {
           bank_account_id?: string | null
@@ -594,6 +604,8 @@ export type Database = {
           payment_method?: string
           user_id?: string
           value?: number
+          observacao?: string | null
+          pago_por_terceiros?: boolean | null
         }
         Relationships: [
           {

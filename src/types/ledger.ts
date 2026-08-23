@@ -3,9 +3,45 @@ export interface RecurringExpense { id: string; name: string; value: number; due
 export interface CardBill { id: string; name: string; value: number; paid: boolean; dueDay?: number; paymentDate?: string; bankAccountId?: string; paidAt?: string; categoryId?: string; createdAt?: number; }
 export interface ExtraIncome { id: string; description: string; value: number; createdAt?: number; }
 export interface Investment { id: string; type: 'CDB' | 'Bitcoin'; description: string; value: number; date: string; action: 'deposit' | 'withdraw' | 'yield'; createdAt?: number; }
-export interface Goal { id: string; name: string; targetValue: number; purchased: boolean; createdAt?: number; }
-export interface LedgerEntry { id: string; date: string; time?: string; description: string; value: number; source: string; createdAt?: number; categoryId?: string; }
-export interface ManualEntry { id: string; date: string; description: string; value: number; paymentMethod?: string; bankAccountId?: string; occurredAt?: string; categoryId?: string; createdAt?: number; }
+
+export interface Goal {
+  id: string;
+  name: string;
+  targetValue: number;
+  purchased: boolean;
+  actualPaidValue?: number; // <-- Adicionado (Valor real pago)
+  paymentDate?: string;     // <-- Adicionado (Data em que foi comprado)
+  createdAt?: number;
+}
+
+export interface LedgerEntry {
+  id: string;
+  date: string;
+  time?: string;
+  description: string;
+  value: number;
+  source: string;
+  createdAt?: number;
+  categoryId?: string;
+  bankAccountId?: string;
+  observation?: string;     // <-- Adicionado
+  paidByOthers?: boolean;   // <-- Adicionado
+}
+
+export interface ManualEntry {
+  id: string;
+  date: string;
+  description: string;
+  value: number;
+  createdAt?: number;
+  paymentMethod?: string;
+  bankAccountId?: string;
+  occurredAt?: string;
+  categoryId?: string;
+  observation?: string;     // <-- Adicionado
+  paidByOthers?: boolean;   // <-- Adicionado
+}
+
 export interface Card { id: string; name: string; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; }
 export interface Subscription { id: string; name: string; value: number; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; paymentMethod?: string; categoryId?: string; }
 export interface Installment { id: string; name: string; monthlyValue: number; totalMonths: number; startDate: string; paidMonths: string[]; createdAt?: number; paymentMethod?: string; dueDay?: number; paidDates?: Record<string, string>; paidBankAccounts?: Record<string, string>; categoryId?: string; }
