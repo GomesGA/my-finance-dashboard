@@ -247,21 +247,40 @@ const addBankAccount = useCallback(async (name: string, kind: 'PF' | 'PJ') => {
     supabase.from('cards').insert({ id: tempId, user_id: userId, name: '', due_day: 1, start_month: toMonthDate(monthKey) });
   }, [userId, monthKey]);
 
-  const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
+const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
+    // 1. Atualiza dados fixos do cartão (Nome e Vencimento)
     if (patch.name !== undefined || patch.dueDay !== undefined) {
       setCardsState(prev => prev.map(c => c.id === id ? { ...c, name: patch.name ?? c.name, dueDay: patch.dueDay ?? c.dueDay } : c));
       const dbPatch: Record<string, unknown> = {};
-      if (patch.name !== undefined) dbPatch.name = patch.name; if (patch.dueDay !== undefined) dbPatch.due_day = patch.dueDay;
+      if (patch.name !== undefined) dbPatch.name = patch.name; 
+      if (patch.dueDay !== undefined) dbPatch.due_day = patch.dueDay;
       supabase.from('cards').update(dbPatch).eq('id', id);
     }
-    if (patch.value !== undefined || patch.paid !== undefined || patch.paymentDate !== undefined || patch.bankAccountId !== undefined || patch.categoryId !== undefined) {
+    
+    // 2. Atualiza dados da fatura daquele mês (Valor, Pagamento e o RASCUNHO/DETALHES)
+    if (patch.value !== undefined || patch.paid !== undefined || patch.paymentDate !== undefined || patch.bankAccountId !== undefined || patch.categoryId !== undefined || patch.details !== undefined) {
       setMonthDataState(m => {
         const existing = m.cardBills.find(c => c.id === id);
-        return existing ? { ...m, cardBills: m.cardBills.map(c => c.id === id ? { ...c, ...patch } : c) } : { ...m, cardBills: [...m.cardBills, { id, name: '', value: patch.value || 0, paid: patch.paid || false, paymentDate: patch.paymentDate, bankAccountId: patch.bankAccountId, paidAt: patch.paidAt, categoryId: patch.categoryId }] };
+        return existing 
+          ? { ...m, cardBills: m.cardBills.map(c => c.id === id ? { ...c, ...patch } : c) } 
+          : { ...m, cardBills: [...m.cardBills, { id, name: '', value: patch.value || 0, paid: patch.paid || false, paymentDate: patch.paymentDate, bankAccountId: patch.bankAccountId, paidAt: patch.paidAt, categoryId: patch.categoryId, details: patch.details }] };
       });
+      
       if (userId) {
         const current = monthData.cardBills.find(c => c.id === id);
-        supabase.from('card_bills').upsert({ user_id: userId, card_id: id, month: toMonthDate(monthKey), value: patch.value ?? current?.value ?? 0, paid: patch.paid ?? current?.paid ?? false, payment_date: patch.paymentDate ?? current?.paymentDate ?? null, bank_account_id: patch.bankAccountId ?? current?.bankAccountId ?? null, category_id: patch.categoryId ?? current?.categoryId ?? null, paid_at: patch.paidAt ?? (patch.paid ? new Date().toISOString() : null) }, { onConflict: 'card_id,month' });
+        supabase.from('card_bills').upsert({ 
+          user_id: userId, 
+          card_id: id, 
+          month: toMonthDate(monthKey), 
+          value: patch.value ?? current?.value ?? 0, 
+          paid: patch.paid ?? current?.paid ?? false, 
+          payment_date: patch.paymentDate ?? current?.paymentDate ?? null, 
+          bank_account_id: patch.bankAccountId ?? current?.bankAccountId ?? null, 
+          category_id: patch.categoryId ?? current?.categoryId ?? null, 
+          paid_at: patch.paidAt ?? (patch.paid ? new Date().toISOString() : null),
+          // 👉 AQUI É ONDE O RASCUNHO VAI PRO BANCO DE DADOS:
+          detalhes: patch.details ?? current?.details ?? null
+        }, { onConflict: 'card_id,month' });
       }
     }
   }, [userId, monthKey, monthData.cardBills]);
@@ -500,7 +519,8 @@ const addBankAccount = useCallback(async (name: string, kind: 'PF' | 'PJ') => {
     supabase.from('recurring_expenses').update({ name, due_day: dueDay, category_id: categoryId ?? null }).eq('id', id);
   }, []);
 
-  const editCard = useCallback((id: string, name: string, value: number, dueDay: number, categoryId?: string) => updateCard(id, { name, value, dueDay, categoryId }), [updateCard]);
+  const editCard = useCallback((id: string, name: string, value: number, dueDay: number, categoryId?: string, details?: string) => 
+    updateCard(id, { name, value, dueDay, categoryId, details }), [updateCard]);
 
   // ===== Funções Comuns de Ledger =====
   const removeLedgerEntry = useCallback((idStr: string, source: string) => {

@@ -1,6 +1,6 @@
 export interface Expense { id: string; name: string; value: number; paid: boolean; dueDay?: number; createdAt?: number; }
 export interface RecurringExpense { id: string; name: string; value: number; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; categoryId?: string; }
-export interface CardBill { id: string; name: string; value: number; paid: boolean; dueDay?: number; paymentDate?: string; bankAccountId?: string; paidAt?: string; categoryId?: string; createdAt?: number; }
+export interface CardBill { id: string; name: string; value: number; paid: boolean; dueDay?: number; paymentDate?: string; bankAccountId?: string; paidAt?: string; categoryId?: string; createdAt?: number; details?: string;}
 export interface ExtraIncome { id: string; description: string; value: number; createdAt?: number; }
 export interface Investment { id: string; type: 'CDB' | 'Bitcoin'; description: string; value: number; date: string; action: 'deposit' | 'withdraw' | 'yield'; createdAt?: number; }
 

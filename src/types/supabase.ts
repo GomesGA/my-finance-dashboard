@@ -51,6 +51,7 @@ export type Database = {
           payment_date: string | null
           user_id: string
           value: number
+          detalhes?: string | null
         }
         Insert: {
           bank_account_id?: string | null
@@ -64,6 +65,7 @@ export type Database = {
           payment_date?: string | null
           user_id: string
           value?: number
+          detalhes?: string | null
         }
         Update: {
           bank_account_id?: string | null
@@ -77,6 +79,7 @@ export type Database = {
           payment_date?: string | null
           user_id?: string
           value?: number
+          detalhes?: string | null
         }
         Relationships: [
           {
