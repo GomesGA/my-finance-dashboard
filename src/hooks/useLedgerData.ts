@@ -166,10 +166,27 @@ export function useLedgerData() {
     supabase.from('income_entries').upsert({ user_id: userId, month: toMonthDate(monthKey), value: val, income_date: date ?? monthData.incomeDate ?? null, bank_account_id: bankAccountId ?? monthData.incomeBankAccountId ?? null, received_at: effectiveTime ? `${effectiveDate}T${effectiveTime}:00` : null }, { onConflict: 'user_id,month' });
   }, [userId, monthKey, monthData]);
 
-  const addBankAccount = useCallback((name: string, kind: 'PF' | 'PJ') => {
-    const tempId = crypto.randomUUID(); const account: BankAccount = { id: tempId, name, kind, createdAt: Date.now() };
+const addBankAccount = useCallback(async (name: string, kind: 'PF' | 'PJ') => {
+    const tempId = crypto.randomUUID(); 
+    const account: BankAccount = { id: tempId, name, kind, createdAt: Date.now() };
+    
+    // Atualiza a tela instantaneamente
     setBankAccountsState(prev => [...prev, account]);
-    if (userId) supabase.from('bank_accounts').insert({ id: tempId, user_id: userId, name, kind });
+    
+    // Tenta salvar no Supabase e avisa se der erro
+    if (userId) {
+      const { error } = await supabase.from('bank_accounts').insert({ 
+        id: tempId, 
+        user_id: userId, 
+        name, 
+        kind 
+      });
+      
+      if (error) {
+        console.error("Erro na Conta Bancária:", error);
+        alert(`O banco recusou a gravação! Erro: ${error.message}`);
+      }
+    }
     return account;
   }, [userId]);
 
