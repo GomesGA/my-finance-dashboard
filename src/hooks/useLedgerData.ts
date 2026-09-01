@@ -166,14 +166,25 @@ export function useLedgerData() {
     supabase.from('income_entries').upsert({ user_id: userId, month: toMonthDate(monthKey), value: val, income_date: date ?? monthData.incomeDate ?? null, bank_account_id: bankAccountId ?? monthData.incomeBankAccountId ?? null, received_at: effectiveTime ? `${effectiveDate}T${effectiveTime}:00` : null }, { onConflict: 'user_id,month' });
   }, [userId, monthKey, monthData]);
 
-  const addBankAccount = useCallback(async (name: string, kind: 'PF' | 'PJ') => {
-    const tempId = crypto.randomUUID(); const account: BankAccount = { id: tempId, name, kind, createdAt: Date.now() };
+const addBankAccount = useCallback((name: string, kind: 'PF' | 'PJ') => {
+    const tempId = crypto.randomUUID(); 
+    const account: BankAccount = { id: tempId, name, kind, createdAt: Date.now() };
+    
+    // Atualiza a tela imediatamente (Síncrono)
     setBankAccountsState(prev => [...prev, account]);
+    
+    // Envia para o banco em segundo plano (Assíncrono via .then)
     if (userId) {
-      const { error } = await supabase.from('bank_accounts').insert({ id: tempId, user_id: userId, name, kind });
-      if (error) { console.error("Erro na Conta Bancária:", error); alert(`O banco recusou a gravação! Erro: ${error.message}`); }
+      supabase.from('bank_accounts').insert({ id: tempId, user_id: userId, name, kind })
+        .then(({ error }) => {
+          if (error) { 
+            console.error("Erro na Conta Bancária:", error); 
+            alert(`O banco recusou a gravação! Erro: ${error.message}`); 
+          }
+        });
     }
-    return account;
+    
+    return account; // Retorno do objeto simples, como o TypeScript exige!
   }, [userId]);
 
   const addCategory = useCallback((name: string, color?: string) => {

@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
+import { DashboardTab } from '@/components/ledger/DashboardTab';
 
 export type TabId = 'dashboard' | 'goals' | 'investments' | 'installments' | 'categories';
 
@@ -51,6 +52,7 @@ const Index = () => {
       />
 
       <main className="w-full max-w-[1900px] mx-auto px-4 lg:px-8 pt-8">
+        {activeTab === 'dashboard' && <DashboardTab ledger={ledger} />}
         {activeTab === 'dashboard' && <BankDashboardTab ledger={ledger} />}
         {activeTab === 'goals' && <GoalsTab ledger={ledger} />}
         {activeTab === 'investments' && <InvestmentsTab ledger={ledger} />}
