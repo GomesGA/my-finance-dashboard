@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLedgerData } from '@/hooks/useLedgerData';
 import { useTheme } from '@/hooks/useTheme';
 import { MonthSelector } from '@/components/ledger/MonthSelector';
-import { DashboardTab } from '@/components/ledger/DashboardTab';
+import { BankDashboardTab } from '@/components/ledger/BankDashboardTab';
 import { GoalsTab } from '@/components/ledger/GoalsTab';
 import { InvestmentsTab } from '@/components/ledger/InvestmentsTab';
 import { InstallmentsPurchasesTab } from '@/components/ledger/InstallmentsTab';
@@ -51,7 +51,7 @@ const Index = () => {
       />
 
       <main className="w-full max-w-[1900px] mx-auto px-4 lg:px-8 pt-8">
-        {activeTab === 'dashboard' && <DashboardTab ledger={ledger} />}
+        {activeTab === 'dashboard' && <BankDashboardTab ledger={ledger} />}
         {activeTab === 'goals' && <GoalsTab ledger={ledger} />}
         {activeTab === 'investments' && <InvestmentsTab ledger={ledger} />}
         {activeTab === 'installments' && <InstallmentsPurchasesTab ledger={ledger} onGoToDashboard={() => setActiveTab('dashboard')} />}

@@ -143,7 +143,7 @@ export function useLedgerData() {
       setMonthDataState({
         income: Number(incomeRes.data?.value ?? 0), incomeDate: incomeRes.data?.income_date ?? undefined, incomeTime: incomeRes.data?.received_at ? incomeRes.data.received_at.slice(11, 16) : undefined, incomeBankAccountId: incomeRes.data?.bank_account_id ?? undefined,
         variableExpenses: (expensesRes.data ?? []).map(e => ({ id: e.id, name: e.name, value: Number(e.value), paid: e.paid, dueDay: e.due_day ?? undefined })),
-        cardBills: (cardBillsRes.data ?? []).map(cb => ({ id: cb.card_id, name: '', value: Number(cb.value), paid: cb.paid, paymentDate: cb.payment_date ?? undefined, bankAccountId: cb.bank_account_id ?? undefined, categoryId: cb.category_id ?? undefined })),
+        cardBills: (cardBillsRes.data ?? []).map(cb => ({ id: cb.card_id, name: '', value: Number(cb.value), paid: cb.paid, paymentDate: cb.payment_date ?? undefined, bankAccountId: cb.bank_account_id ?? undefined, categoryId: cb.category_id ?? undefined, details: cb.detalhes ?? undefined })),
         extraIncomes: (extraIncomesRes.data ?? []).map(ei => ({ id: ei.id, description: ei.description ?? '', value: Number(ei.value) })),
         extraordinaryExpenses: (extraordinaryRes.data ?? []).map(e => ({ id: e.id, name: e.name, value: Number(e.value), paid: e.paid })),
         investments: [],
@@ -166,26 +166,12 @@ export function useLedgerData() {
     supabase.from('income_entries').upsert({ user_id: userId, month: toMonthDate(monthKey), value: val, income_date: date ?? monthData.incomeDate ?? null, bank_account_id: bankAccountId ?? monthData.incomeBankAccountId ?? null, received_at: effectiveTime ? `${effectiveDate}T${effectiveTime}:00` : null }, { onConflict: 'user_id,month' });
   }, [userId, monthKey, monthData]);
 
-const addBankAccount = useCallback(async (name: string, kind: 'PF' | 'PJ') => {
-    const tempId = crypto.randomUUID(); 
-    const account: BankAccount = { id: tempId, name, kind, createdAt: Date.now() };
-    
-    // Atualiza a tela instantaneamente
+  const addBankAccount = useCallback(async (name: string, kind: 'PF' | 'PJ') => {
+    const tempId = crypto.randomUUID(); const account: BankAccount = { id: tempId, name, kind, createdAt: Date.now() };
     setBankAccountsState(prev => [...prev, account]);
-    
-    // Tenta salvar no Supabase e avisa se der erro
     if (userId) {
-      const { error } = await supabase.from('bank_accounts').insert({ 
-        id: tempId, 
-        user_id: userId, 
-        name, 
-        kind 
-      });
-      
-      if (error) {
-        console.error("Erro na Conta Bancária:", error);
-        alert(`O banco recusou a gravação! Erro: ${error.message}`);
-      }
+      const { error } = await supabase.from('bank_accounts').insert({ id: tempId, user_id: userId, name, kind });
+      if (error) { console.error("Erro na Conta Bancária:", error); alert(`O banco recusou a gravação! Erro: ${error.message}`); }
     }
     return account;
   }, [userId]);
@@ -247,8 +233,8 @@ const addBankAccount = useCallback(async (name: string, kind: 'PF' | 'PJ') => {
     supabase.from('cards').insert({ id: tempId, user_id: userId, name: '', due_day: 1, start_month: toMonthDate(monthKey) });
   }, [userId, monthKey]);
 
-const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
-    // 1. Atualiza dados fixos do cartão (Nome e Vencimento)
+  // CORREÇÃO: updateCard agora usa o state síncrono para garantir persistência do F5 e suporta 'details'
+  const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
     if (patch.name !== undefined || patch.dueDay !== undefined) {
       setCardsState(prev => prev.map(c => c.id === id ? { ...c, name: patch.name ?? c.name, dueDay: patch.dueDay ?? c.dueDay } : c));
       const dbPatch: Record<string, unknown> = {};
@@ -257,40 +243,36 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
       supabase.from('cards').update(dbPatch).eq('id', id);
     }
     
-    // 2. Atualiza dados da fatura daquele mês (Valor, Pagamento e o RASCUNHO/DETALHES)
     if (patch.value !== undefined || patch.paid !== undefined || patch.paymentDate !== undefined || patch.bankAccountId !== undefined || patch.categoryId !== undefined || patch.details !== undefined) {
       setMonthDataState(m => {
-        const existing = m.cardBills.find(c => c.id === id);
-        return existing 
-          ? { ...m, cardBills: m.cardBills.map(c => c.id === id ? { ...c, ...patch } : c) } 
-          : { ...m, cardBills: [...m.cardBills, { id, name: '', value: patch.value || 0, paid: patch.paid || false, paymentDate: patch.paymentDate, bankAccountId: patch.bankAccountId, paidAt: patch.paidAt, categoryId: patch.categoryId, details: patch.details }] };
+        const current = m.cardBills.find(c => c.id === id);
+        const nextBills = current 
+          ? m.cardBills.map(c => c.id === id ? { ...c, ...patch } : c) 
+          : [...m.cardBills, { id, name: '', value: patch.value || 0, paid: patch.paid || false, paymentDate: patch.paymentDate, bankAccountId: patch.bankAccountId, paidAt: patch.paidAt, categoryId: patch.categoryId, details: patch.details }];
+        
+        if (userId) {
+          supabase.from('card_bills').upsert({ 
+            user_id: userId, card_id: id, month: toMonthDate(monthKey), 
+            value: patch.value ?? current?.value ?? 0, 
+            paid: patch.paid ?? current?.paid ?? false, 
+            payment_date: patch.paymentDate ?? current?.paymentDate ?? null, 
+            bank_account_id: patch.bankAccountId ?? current?.bankAccountId ?? null, 
+            category_id: patch.categoryId ?? current?.categoryId ?? null, 
+            paid_at: patch.paidAt ?? (patch.paid ? new Date().toISOString() : null),
+            detalhes: patch.details ?? current?.details ?? null
+          }, { onConflict: 'card_id,month' });
+        }
+        return { ...m, cardBills: nextBills };
       });
-      
-      if (userId) {
-        const current = monthData.cardBills.find(c => c.id === id);
-        supabase.from('card_bills').upsert({ 
-          user_id: userId, 
-          card_id: id, 
-          month: toMonthDate(monthKey), 
-          value: patch.value ?? current?.value ?? 0, 
-          paid: patch.paid ?? current?.paid ?? false, 
-          payment_date: patch.paymentDate ?? current?.paymentDate ?? null, 
-          bank_account_id: patch.bankAccountId ?? current?.bankAccountId ?? null, 
-          category_id: patch.categoryId ?? current?.categoryId ?? null, 
-          paid_at: patch.paidAt ?? (patch.paid ? new Date().toISOString() : null),
-          // 👉 AQUI É ONDE O RASCUNHO VAI PRO BANCO DE DADOS:
-          detalhes: patch.details ?? current?.details ?? null
-        }, { onConflict: 'card_id,month' });
-      }
     }
-  }, [userId, monthKey, monthData.cardBills]);
+  }, [userId, monthKey]);
 
   const removeCard = useCallback((id: string) => {
     setCardsState(prev => prev.map(c => c.id === id ? { ...c, endMonth: monthKey } : c));
     supabase.from('cards').update({ end_month: toMonthDate(monthKey) }).eq('id', id);
   }, [monthKey]);
 
-  const computedCardBills = useMemo(() => cardsState.filter(c => c.startMonth <= monthKey && (!c.endMonth || c.endMonth > monthKey)).map(c => { const mData = currentMonthData.cardBills.find(cb => cb.id === c.id); return { id: c.id, name: c.name, dueDay: c.dueDay, value: mData?.value || 0, paid: mData?.paid || false, paymentDate: mData?.paymentDate, bankAccountId: mData?.bankAccountId, paidAt: mData?.paidAt, categoryId: mData?.categoryId, createdAt: c.createdAt }; }).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)), [cardsState, currentMonthData.cardBills, monthKey]);
+  const computedCardBills = useMemo(() => cardsState.filter(c => c.startMonth <= monthKey && (!c.endMonth || c.endMonth > monthKey)).map(c => { const mData = currentMonthData.cardBills.find(cb => cb.id === c.id); return { id: c.id, name: c.name, dueDay: c.dueDay, value: mData?.value || 0, paid: mData?.paid || false, paymentDate: mData?.paymentDate, bankAccountId: mData?.bankAccountId, paidAt: mData?.paidAt, categoryId: mData?.categoryId, details: mData?.details, createdAt: c.createdAt }; }).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)), [cardsState, currentMonthData.cardBills, monthKey]);
 
   // ===== Assinaturas =====
   const activeSubscriptions = useMemo(() => subscriptionsState.filter(s => s.startMonth <= monthKey && (!s.endMonth || s.endMonth > monthKey)), [subscriptionsState, monthKey]);
@@ -309,32 +291,48 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
     supabase.from('subscriptions').update({ end_month: toMonthDate(monthKey) }).eq('id', id);
   }, [monthKey]);
 
-  const upsertSubscriptionMonth = useCallback((id: string, patch: Partial<{ paid: boolean; value_override: number | null; date_override: string | null; bank_account_id: string | null; paid_at: string | null }>) => {
-    if (!userId) return;
-    const current = { paid: monthData.subscriptionPaidState[id] ?? false, value_override: monthData.subscriptionValueOverrides[id] ?? null, date_override: monthData.subscriptionDateOverrides?.[id] ?? null, bank_account_id: monthData.subscriptionBankAccounts?.[id] ?? null };
-    supabase.from('subscription_months').upsert({ user_id: userId, subscription_id: id, month: toMonthDate(monthKey), ...current, ...patch }, { onConflict: 'subscription_id,month' });
-  }, [userId, monthKey, monthData]);
-
+  // CORREÇÃO: paySubscription usa o state síncrono
   const paySubscription = useCallback((id: string, bankAccountId: string, paidAtIso: string) => {
     const dateOnly = paidAtIso.slice(0, 10);
-    setMonthDataState(m => ({ ...m, subscriptionPaidState: { ...m.subscriptionPaidState, [id]: true }, subscriptionDateOverrides: { ...(m.subscriptionDateOverrides || {}), [id]: dateOnly }, subscriptionBankAccounts: { ...(m.subscriptionBankAccounts || {}), [id]: bankAccountId }, subscriptionPaidAt: { ...(m.subscriptionPaidAt || {}), [id]: paidAtIso } }));
-    upsertSubscriptionMonth(id, { paid: true, date_override: dateOnly, bank_account_id: bankAccountId, paid_at: paidAtIso });
-  }, [upsertSubscriptionMonth]);
+    setMonthDataState(m => {
+      const nextPaidState = { ...m.subscriptionPaidState, [id]: true };
+      const nextDateOverrides = { ...(m.subscriptionDateOverrides || {}), [id]: dateOnly };
+      const nextBankAccounts = { ...(m.subscriptionBankAccounts || {}), [id]: bankAccountId };
+      const nextPaidAt = { ...(m.subscriptionPaidAt || {}), [id]: paidAtIso };
 
+      if (userId) {
+        supabase.from('subscription_months').upsert({
+          user_id: userId, subscription_id: id, month: toMonthDate(monthKey),
+          paid: true, value_override: m.subscriptionValueOverrides[id] ?? null,
+          date_override: dateOnly, bank_account_id: bankAccountId, paid_at: paidAtIso
+        }, { onConflict: 'subscription_id,month' });
+      }
+      return { ...m, subscriptionPaidState: nextPaidState, subscriptionDateOverrides: nextDateOverrides, subscriptionBankAccounts: nextBankAccounts, subscriptionPaidAt: nextPaidAt };
+    });
+  }, [userId, monthKey]);
+
+  // CORREÇÃO: unpaySubscription usa o state síncrono
   const unpaySubscription = useCallback((id: string) => {
-    setMonthDataState(m => ({ ...m, subscriptionPaidState: { ...m.subscriptionPaidState, [id]: false } }));
-    upsertSubscriptionMonth(id, { paid: false, paid_at: null });
-  }, [upsertSubscriptionMonth]);
+    setMonthDataState(m => {
+      const nextPaidState = { ...m.subscriptionPaidState, [id]: false };
+      if (userId) {
+        supabase.from('subscription_months').upsert({
+          user_id: userId, subscription_id: id, month: toMonthDate(monthKey),
+          paid: false, value_override: m.subscriptionValueOverrides[id] ?? null,
+          date_override: m.subscriptionDateOverrides?.[id] ?? null,
+          bank_account_id: m.subscriptionBankAccounts?.[id] ?? null, paid_at: null
+        }, { onConflict: 'subscription_id,month' });
+      }
+      return { ...m, subscriptionPaidState: nextPaidState };
+    });
+  }, [userId, monthKey]);
 
   const updateSubscriptionValue = useCallback((id: string, value: number) => {
-    setMonthDataState(m => ({ ...m, subscriptionValueOverrides: { ...m.subscriptionValueOverrides, [id]: value } }));
-    upsertSubscriptionMonth(id, { value_override: value });
-  }, [upsertSubscriptionMonth]);
-
-  const updateSubscriptionDate = useCallback((id: string, date: string) => {
-    setMonthDataState(m => ({ ...m, subscriptionDateOverrides: { ...(m.subscriptionDateOverrides || {}), [id]: date } }));
-    upsertSubscriptionMonth(id, { date_override: date });
-  }, [upsertSubscriptionMonth]);
+    setMonthDataState(m => {
+      if (userId) supabase.from('subscription_months').upsert({ user_id: userId, subscription_id: id, month: toMonthDate(monthKey), value_override: value, paid: m.subscriptionPaidState[id] ?? false }, { onConflict: 'subscription_id,month' });
+      return { ...m, subscriptionValueOverrides: { ...m.subscriptionValueOverrides, [id]: value } };
+    });
+  }, [userId, monthKey]);
 
   // ===== Recorrentes =====
   const activeRecurringExpenses = useMemo(() => recurringState.filter(re => re.startMonth <= monthKey && (!re.endMonth || re.endMonth > monthKey)), [recurringState, monthKey]);
@@ -356,38 +354,72 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
     supabase.from('recurring_expenses').update({ end_month: toMonthDate(monthKey) }).eq('id', id);
   }, [monthKey]);
 
-  const upsertRecurringMonth = useCallback((id: string, patch: Partial<{ paid: boolean; value_override: number | null; date_override: string | null; bank_account_id: string | null; paid_at: string | null; is_active: boolean }>) => {
-    if (!userId) return;
-    const current = { paid: monthData.recurringPaidState[id] ?? false, value_override: monthData.recurringValueOverrides[id] ?? null, date_override: monthData.recurringDateOverrides?.[id] ?? null, bank_account_id: monthData.recurringBankAccounts?.[id] ?? null, is_active: monthData.recurringActiveState?.[id] ?? true };
-    supabase.from('recurring_expense_months').upsert({ user_id: userId, recurring_expense_id: id, month: toMonthDate(monthKey), ...current, ...patch }, { onConflict: 'recurring_expense_id,month' });
-  }, [userId, monthKey, monthData]);
-
   const toggleRecurringActive = useCallback((id: string) => {
-    const newActive = !(monthData.recurringActiveState?.[id] ?? true);
-    setMonthDataState(m => ({ ...m, recurringActiveState: { ...(m.recurringActiveState || {}), [id]: newActive } }));
-    upsertRecurringMonth(id, { is_active: newActive });
-  }, [monthData.recurringActiveState, upsertRecurringMonth]);
+    setMonthDataState(m => {
+      const newActive = !(m.recurringActiveState?.[id] ?? true);
+      if (userId) supabase.from('recurring_expense_months').upsert({ user_id: userId, recurring_expense_id: id, month: toMonthDate(monthKey), is_active: newActive, paid: m.recurringPaidState[id] ?? false }, { onConflict: 'recurring_expense_id,month' });
+      return { ...m, recurringActiveState: { ...(m.recurringActiveState || {}), [id]: newActive } };
+    });
+  }, [userId, monthKey]);
 
+  // CORREÇÃO: payRecurringExpense usa o state síncrono
   const payRecurringExpense = useCallback((id: string, bankAccountId: string, paidAtIso: string) => {
     const dateOnly = paidAtIso.slice(0, 10);
-    setMonthDataState(m => ({ ...m, recurringPaidState: { ...m.recurringPaidState, [id]: true }, recurringDateOverrides: { ...(m.recurringDateOverrides || {}), [id]: dateOnly }, recurringBankAccounts: { ...(m.recurringBankAccounts || {}), [id]: bankAccountId }, recurringPaidAt: { ...(m.recurringPaidAt || {}), [id]: paidAtIso } }));
-    upsertRecurringMonth(id, { paid: true, date_override: dateOnly, bank_account_id: bankAccountId, paid_at: paidAtIso });
-  }, [upsertRecurringMonth]);
+    setMonthDataState(m => {
+      const nextPaidState = { ...m.recurringPaidState, [id]: true };
+      const nextDateOverrides = { ...(m.recurringDateOverrides || {}), [id]: dateOnly };
+      const nextBankAccounts = { ...(m.recurringBankAccounts || {}), [id]: bankAccountId };
+      const nextPaidAt = { ...(m.recurringPaidAt || {}), [id]: paidAtIso };
 
+      if (userId) {
+        supabase.from('recurring_expense_months').upsert({
+          user_id: userId, recurring_expense_id: id, month: toMonthDate(monthKey),
+          paid: true, value_override: m.recurringValueOverrides[id] ?? null,
+          date_override: dateOnly, bank_account_id: bankAccountId, paid_at: paidAtIso,
+          is_active: m.recurringActiveState?.[id] ?? true
+        }, { onConflict: 'recurring_expense_id,month' });
+      }
+      return { ...m, recurringPaidState: nextPaidState, recurringDateOverrides: nextDateOverrides, recurringBankAccounts: nextBankAccounts, recurringPaidAt: nextPaidAt };
+    });
+  }, [userId, monthKey]);
+
+  // CORREÇÃO: unpayRecurringExpense usa o state síncrono
   const unpayRecurringExpense = useCallback((id: string) => {
-    setMonthDataState(m => ({ ...m, recurringPaidState: { ...m.recurringPaidState, [id]: false } }));
-    upsertRecurringMonth(id, { paid: false, paid_at: null });
-  }, [upsertRecurringMonth]);
+    setMonthDataState(m => {
+      const nextPaidState = { ...m.recurringPaidState, [id]: false };
+      if (userId) {
+        supabase.from('recurring_expense_months').upsert({
+          user_id: userId, recurring_expense_id: id, month: toMonthDate(monthKey),
+          paid: false, value_override: m.recurringValueOverrides[id] ?? null,
+          date_override: m.recurringDateOverrides?.[id] ?? null,
+          bank_account_id: m.recurringBankAccounts?.[id] ?? null, paid_at: null,
+          is_active: m.recurringActiveState?.[id] ?? true
+        }, { onConflict: 'recurring_expense_id,month' });
+      }
+      return { ...m, recurringPaidState: nextPaidState };
+    });
+  }, [userId, monthKey]);
 
   const updateRecurringValue = useCallback((id: string, value: number) => {
-    setMonthDataState(m => ({ ...m, recurringValueOverrides: { ...m.recurringValueOverrides, [id]: value } }));
-    upsertRecurringMonth(id, { value_override: value });
-  }, [upsertRecurringMonth]);
+    setMonthDataState(m => {
+      if (userId) supabase.from('recurring_expense_months').upsert({ user_id: userId, recurring_expense_id: id, month: toMonthDate(monthKey), value_override: value, paid: m.recurringPaidState[id] ?? false }, { onConflict: 'recurring_expense_id,month' });
+      return { ...m, recurringValueOverrides: { ...m.recurringValueOverrides, [id]: value } };
+    });
+  }, [userId, monthKey]);
+
+  const updateSubscriptionDate = useCallback((id: string, date: string) => {
+    setMonthDataState(m => {
+      if (userId) supabase.from('subscription_months').upsert({ user_id: userId, subscription_id: id, month: toMonthDate(monthKey), date_override: date, paid: m.subscriptionPaidState[id] ?? false }, { onConflict: 'subscription_id,month' });
+      return { ...m, subscriptionDateOverrides: { ...(m.subscriptionDateOverrides || {}), [id]: date } };
+    });
+  }, [userId, monthKey]);
 
   const updateRecurringDate = useCallback((id: string, date: string) => {
-    setMonthDataState(m => ({ ...m, recurringDateOverrides: { ...(m.recurringDateOverrides || {}), [id]: date } }));
-    upsertRecurringMonth(id, { date_override: date });
-  }, [upsertRecurringMonth]);
+    setMonthDataState(m => {
+      if (userId) supabase.from('recurring_expense_months').upsert({ user_id: userId, recurring_expense_id: id, month: toMonthDate(monthKey), date_override: date, paid: m.recurringPaidState[id] ?? false }, { onConflict: 'recurring_expense_id,month' });
+      return { ...m, recurringDateOverrides: { ...(m.recurringDateOverrides || {}), [id]: date } };
+    });
+  }, [userId, monthKey]);
 
   // ===== Investimentos =====
   const addInvestment = useCallback((type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw' | 'yield', date?: string) => {
@@ -404,7 +436,7 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
     supabase.from('investments').delete().eq('id', id);
   }, []);
 
-  // ===== Entradas/saídas manuais (COM OBSERVAÇÃO E PAGO POR TERCEIROS) =====
+  // ===== Entradas/saídas manuais =====
   const manualPaymentMethodToDb = (label?: string) => { switch (label) { case 'Boleto': return 'boleto'; case 'TED': return 'ted'; case 'Outros': return 'outros'; case 'Cartão': return 'card'; default: return 'pix'; } };
 
   const addManualEntry = useCallback((date: string, description: string, value: number, paymentMethod?: string, bankAccountId?: string, time?: string, categoryId?: string, observation?: string, paidByOthers: boolean = false) => {
@@ -486,7 +518,7 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
     })();
   }, [installmentsState, userId]);
 
-  // ===== NOVA REGRA: Metas viram um Registro de Compras passivo =====
+  // ===== Metas =====
   const addGoal = useCallback((name: string, targetValue: number) => {
     if (!userId) return;
     const tempId = crypto.randomUUID(); const goal: Goal = { id: tempId, name, targetValue, purchased: false, createdAt: Date.now() };
@@ -502,7 +534,7 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
   const toggleGoalPurchased = useCallback((id: string) => {
     let newVal = false;
     setGoalsState(prev => prev.map(g => { if (g.id !== id) return g; newVal = !g.purchased; return { ...g, purchased: newVal }; }));
-    supabase.from('goals').update({ purchased: newVal }).eq('id', id);
+    supabase.from('goals').update({ purchased: newVal, actual_paid_value: null, payment_date: null }).eq('id', id);
   }, []);
 
   const removeGoal = useCallback((id: string) => { setGoalsState(prev => prev.filter(g => g.id !== id)); supabase.from('goals').delete().eq('id', id); }, []);
@@ -519,8 +551,7 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
     supabase.from('recurring_expenses').update({ name, due_day: dueDay, category_id: categoryId ?? null }).eq('id', id);
   }, []);
 
-  const editCard = useCallback((id: string, name: string, value: number, dueDay: number, categoryId?: string, details?: string) => 
-    updateCard(id, { name, value, dueDay, categoryId, details }), [updateCard]);
+  const editCard = useCallback((id: string, name: string, value: number, dueDay: number, categoryId?: string, details?: string) => updateCard(id, { name, value, dueDay, categoryId, details }), [updateCard]);
 
   // ===== Funções Comuns de Ledger =====
   const removeLedgerEntry = useCallback((idStr: string, source: string) => {
@@ -548,7 +579,7 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
     else if (source === 'investment-deposit' || source === 'investment-withdraw' || source === 'investment-yield') { const cleanDesc = description.replace(/^(Aporte|Resgate|Rendimento) (CDB|Bitcoin)( - )?/, ''); setInvestmentsState(prev => prev.map(inv => inv.id === id ? { ...inv, date, description: cleanDesc, value } : inv)); supabase.from('investments').update({ occurred_on: date, description: cleanDesc, value }).eq('id', id); }
   }, [updateCard, updateRecurringValue, updateRecurringDate, updateSubscriptionValue, updateSubscriptionDate, setIncome]);
 
-  // ===== NOVA REGRA DE ORDENAÇÃO: Data e Hora (Mais recente primeiro) =====
+  // ===== Ordenação =====
   const sortEntriesDesc = (a: LedgerEntry, b: LedgerEntry) => {
     const timeA = new Date(`${a.date}T${a.time || '00:00'}:00`).getTime();
     const timeB = new Date(`${b.date}T${b.time || '00:00'}:00`).getTime();
@@ -567,14 +598,22 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
     return entries.sort(sortEntriesDesc);
   }, [currentMonthData, monthKey]);
 
+  // CORREÇÃO: computedExits agora repassa as Categorias e Bancos de todas as tabelas automáticas
   const computedExits: LedgerEntry[] = useMemo(() => {
     const exits: LedgerEntry[] = [];
+    
     activeRecurringExpenses.forEach(re => {
       if (currentMonthData.recurringActiveState?.[re.id] === false) return;
       if (currentMonthData.recurringPaidState[re.id]) {
         const date = currentMonthData.recurringDateOverrides?.[re.id] || `${monthKey}-${String(re.dueDay).padStart(2, '0')}`;
         const time = currentMonthData.recurringPaidAt?.[re.id] ? splitDateTime(currentMonthData.recurringPaidAt[re.id]).time : undefined;
-        exits.push({ id: `rec-${re.id}`, date, time, description: re.name, value: Number(currentMonthData.recurringValueOverrides[re.id] ?? 0), source: 'recurring', createdAt: re.createdAt, categoryId: re.categoryId });
+        exits.push({ 
+          id: `rec-${re.id}`, date, time, description: re.name, 
+          value: Number(currentMonthData.recurringValueOverrides[re.id] ?? 0), 
+          source: 'recurring', createdAt: re.createdAt, 
+          categoryId: re.categoryId,
+          bankAccountId: currentMonthData.recurringBankAccounts?.[re.id] 
+        });
       }
     });
 
@@ -583,7 +622,13 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
         if (!sub.paymentMethod || sub.paymentMethod === 'Pix') {
           const date = currentMonthData.subscriptionDateOverrides?.[sub.id] || `${monthKey}-${String(sub.dueDay).padStart(2, '0')}`;
           const time = currentMonthData.subscriptionPaidAt?.[sub.id] ? splitDateTime(currentMonthData.subscriptionPaidAt[sub.id]).time : undefined;
-          exits.push({ id: `sub-${sub.id}`, date, time, description: sub.name, value: Number(currentMonthData.subscriptionValueOverrides[sub.id] ?? sub.value), source: 'subscription', createdAt: sub.createdAt, categoryId: sub.categoryId });
+          exits.push({ 
+            id: `sub-${sub.id}`, date, time, description: sub.name, 
+            value: Number(currentMonthData.subscriptionValueOverrides[sub.id] ?? sub.value), 
+            source: 'subscription', createdAt: sub.createdAt, 
+            categoryId: sub.categoryId,
+            bankAccountId: currentMonthData.subscriptionBankAccounts?.[sub.id] 
+          });
         }
       }
     });
@@ -592,19 +637,39 @@ const updateCard = useCallback((id: string, patch: Partial<CardBill>) => {
       if (inst.paidMonths.includes(monthKey)) {
         if (!inst.paymentMethod || inst.paymentMethod === 'Pix') {
           const { date, time } = splitDateTime(inst.paidDates?.[monthKey]);
-          exits.push({ id: `inst-${inst.id}`, date: date || `${monthKey}-01`, time, description: `Parcela: ${inst.name}`, value: inst.monthlyValue, source: 'installment', createdAt: inst.createdAt, categoryId: inst.categoryId });
+          exits.push({ 
+            id: `inst-${inst.id}`, date: date || `${monthKey}-01`, time, 
+            description: `Parcela: ${inst.name}`, value: inst.monthlyValue, 
+            source: 'installment', createdAt: inst.createdAt, 
+            categoryId: inst.categoryId,
+            bankAccountId: inst.paidBankAccounts?.[monthKey] 
+          });
         }
       }
     });
 
-    computedCardBills.filter(c => c.paid).forEach(c => exits.push({ id: `card-${c.id}`, date: c.paymentDate || `${monthKey}-${String(c.dueDay || 1).padStart(2, '0')}`, time: c.paidAt ? splitDateTime(c.paidAt).time : undefined, description: c.name || 'Cartão', value: Number(c.value), source: 'card', createdAt: c.createdAt, categoryId: c.categoryId }));
+    computedCardBills.filter(c => c.paid).forEach(c => exits.push({ 
+      id: `card-${c.id}`, date: c.paymentDate || `${monthKey}-${String(c.dueDay || 1).padStart(2, '0')}`, 
+      time: c.paidAt ? splitDateTime(c.paidAt).time : undefined, 
+      description: c.name || 'Cartão', value: Number(c.value), 
+      source: 'card', createdAt: c.createdAt, 
+      categoryId: c.categoryId,
+      bankAccountId: c.bankAccountId 
+    }));
+
     (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).forEach(e => exits.push({ id: `ext-${e.id}`, date: `${monthKey}-01`, description: e.name || 'Despesa Extra', value: Number(e.value), source: 'extraordinary', createdAt: e.createdAt }));
     (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit', createdAt: inv.createdAt }));
-    (currentMonthData.manualExits || []).forEach(me => exits.push({ id: `mx-${me.id}`, date: me.date, time: me.occurredAt ? me.occurredAt.slice(11, 16) : undefined, description: me.description, value: Number(me.value), source: 'manual-exit', createdAt: me.createdAt, categoryId: me.categoryId, bankAccountId: me.bankAccountId, observation: me.observation, paidByOthers: me.paidByOthers }));
+    
+    (currentMonthData.manualExits || []).forEach(me => exits.push({ 
+      id: `mx-${me.id}`, date: me.date, time: me.occurredAt ? me.occurredAt.slice(11, 16) : undefined, 
+      description: me.description, value: Number(me.value), source: 'manual-exit', createdAt: me.createdAt, 
+      categoryId: me.categoryId, bankAccountId: me.bankAccountId, observation: me.observation, paidByOthers: me.paidByOthers 
+    }));
+
     return exits.sort(sortEntriesDesc);
   }, [currentMonthData, monthKey, activeRecurringExpenses, activeSubscriptions, activeInstallments, computedCardBills]);
 
-  // ===== NOVA REGRA MATEMÁTICA: Ignora o que foi pago por terceiros =====
+  // ===== Matemática Final =====
   const totalIncome = computedEntries.filter(e => !e.paidByOthers).reduce((a, c) => a + c.value, 0);
   const totalExpenses = computedExits.filter(e => !e.paidByOthers).reduce((a, c) => a + c.value, 0);
   const balance = totalIncome - totalExpenses;
