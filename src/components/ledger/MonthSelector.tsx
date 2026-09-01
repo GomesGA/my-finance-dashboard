@@ -16,7 +16,7 @@ interface Props {
 const tabs: { id: TabId; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'installments', label: 'Parcelas', icon: ShoppingBag },
-  { id: 'categories', label: 'Categorias', icon: Tag },
+  { id: 'dash', label: 'Dash Bancos', icon: Tag },
   { id: 'goals', label: 'Metas', icon: Target },
   { id: 'investments', label: 'Investimentos', icon: TrendingUp },
 ];
@@ -28,7 +28,6 @@ export function MonthSelector({ currentDate, onPrev, onNext, dark, onToggleTheme
         {/* Top row: logo + month selector + theme */}
         <div className="h-14 flex items-center justify-between">
           
-          {/* AQUI ESTÁ A MUDANÇA: Ícone e Texto */}
           <div className="flex items-center gap-2">
             <Landmark size={20} className="text-primary" />
             <h1 className="text-lg font-bold tracking-tight text-foreground">Controle Financeiro</h1>

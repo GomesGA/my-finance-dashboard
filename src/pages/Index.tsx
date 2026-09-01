@@ -6,7 +6,6 @@ import { BankDashboardTab } from '@/components/ledger/BankDashboardTab';
 import { GoalsTab } from '@/components/ledger/GoalsTab';
 import { InvestmentsTab } from '@/components/ledger/InvestmentsTab';
 import { InstallmentsPurchasesTab } from '@/components/ledger/InstallmentsTab';
-import { CategoriesTab } from '@/components/ledger/CategoriesTab';
 import { Auth } from '@/components/Auth';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
@@ -14,7 +13,8 @@ import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import { DashboardTab } from '@/components/ledger/DashboardTab';
 
-export type TabId = 'dashboard' | 'goals' | 'investments' | 'installments' | 'categories';
+// 1. O TypeScript agora reconhece 'dash' como a nova aba (substituindo 'categories')
+export type TabId = 'dashboard' | 'goals' | 'investments' | 'installments' | 'dash';
 
 const Index = () => {
   const ledger = useLedgerData();
@@ -22,7 +22,6 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [session, setSession] = useState<Session | null>(null);
 
-  // Verifica o login do usuário
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
@@ -30,7 +29,7 @@ const Index = () => {
   }, []);
 
   if (!session) {
-    return <Auth />; // Se não tiver logado, mostra a tela de login
+    return <Auth />;
   }
 
   return (
@@ -53,11 +52,10 @@ const Index = () => {
 
       <main className="w-full max-w-[1900px] mx-auto px-4 lg:px-8 pt-8">
         {activeTab === 'dashboard' && <DashboardTab ledger={ledger} />}
-        {activeTab === 'dashboard' && <BankDashboardTab ledger={ledger} />}
+        {activeTab === 'dash' && <BankDashboardTab ledger={ledger} />}
         {activeTab === 'goals' && <GoalsTab ledger={ledger} />}
         {activeTab === 'investments' && <InvestmentsTab ledger={ledger} />}
         {activeTab === 'installments' && <InstallmentsPurchasesTab ledger={ledger} onGoToDashboard={() => setActiveTab('dashboard')} />}
-        {activeTab === 'categories' && <CategoriesTab ledger={ledger} />}
       </main>
     </div>
   );
