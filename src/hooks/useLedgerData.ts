@@ -603,23 +603,35 @@ export function useLedgerData() {
 
   const computedExits: LedgerEntry[] = useMemo(() => {
     const exits: LedgerEntry[] = [];
+    
     activeRecurringExpenses.forEach(re => {
       if (currentMonthData.recurringActiveState?.[re.id] === false) return;
       if (currentMonthData.recurringPaidState[re.id]) {
         const date = currentMonthData.recurringDateOverrides?.[re.id] || `${monthKey}-${String(re.dueDay).padStart(2, '0')}`;
         const time = currentMonthData.recurringPaidAt?.[re.id] ? splitDateTime(currentMonthData.recurringPaidAt[re.id]).time : undefined;
-        exits.push({ id: `rec-${re.id}`, date, time, description: re.name, value: Number(currentMonthData.recurringValueOverrides[re.id] ?? 0), source: 'recurring', createdAt: re.createdAt, categoryId: re.categoryId, bankAccountId: currentMonthData.recurringBankAccounts?.[re.id] });
+        exits.push({ 
+          id: `rec-${re.id}`, date, time, description: re.name, 
+          // 🔥 AQUI ESTAVA O ERRO! Trocamos "?? 0" por "?? re.value"
+          value: Number(currentMonthData.recurringValueOverrides[re.id] ?? re.value), 
+          source: 'recurring', createdAt: re.createdAt, categoryId: re.categoryId, bankAccountId: currentMonthData.recurringBankAccounts?.[re.id] 
+        });
       }
     });
+
     activeSubscriptions.forEach(sub => {
       if (currentMonthData.subscriptionPaidState[sub.id]) {
         if (!sub.paymentMethod || sub.paymentMethod === 'Pix') {
           const date = currentMonthData.subscriptionDateOverrides?.[sub.id] || `${monthKey}-${String(sub.dueDay).padStart(2, '0')}`;
           const time = currentMonthData.subscriptionPaidAt?.[sub.id] ? splitDateTime(currentMonthData.subscriptionPaidAt[sub.id]).time : undefined;
-          exits.push({ id: `sub-${sub.id}`, date, time, description: sub.name, value: Number(currentMonthData.subscriptionValueOverrides[sub.id] ?? sub.value), source: 'subscription', createdAt: sub.createdAt, categoryId: sub.categoryId, bankAccountId: currentMonthData.subscriptionBankAccounts?.[sub.id] });
+          exits.push({ 
+            id: `sub-${sub.id}`, date, time, description: sub.name, 
+            value: Number(currentMonthData.subscriptionValueOverrides[sub.id] ?? sub.value), 
+            source: 'subscription', createdAt: sub.createdAt, categoryId: sub.categoryId, bankAccountId: currentMonthData.subscriptionBankAccounts?.[sub.id] 
+          });
         }
       }
     });
+
     activeInstallments.forEach(inst => {
       if (inst.paidMonths.includes(monthKey)) {
         if (!inst.paymentMethod || inst.paymentMethod === 'Pix') {
@@ -628,6 +640,7 @@ export function useLedgerData() {
         }
       }
     });
+
     computedCardBills.filter(c => c.paid).forEach(c => exits.push({ id: `card-${c.id}`, date: c.paymentDate || `${monthKey}-${String(c.dueDay || 1).padStart(2, '0')}`, time: c.paidAt ? splitDateTime(c.paidAt).time : undefined, description: c.name || 'Cartão', value: Number(c.value), source: 'card', createdAt: c.createdAt, categoryId: c.categoryId, bankAccountId: c.bankAccountId }));
     (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).forEach(e => exits.push({ id: `ext-${e.id}`, date: `${monthKey}-01`, description: e.name || 'Despesa Extra', value: Number(e.value), source: 'extraordinary', createdAt: e.createdAt }));
     (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit', createdAt: inv.createdAt }));
