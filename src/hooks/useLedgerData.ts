@@ -177,8 +177,7 @@ export function useLedgerData() {
       setMonthDataState({
         income: Number(incomeRes.data?.value ?? 0), incomeDate: incomeRes.data?.income_date ?? undefined, incomeTime: incomeRes.data?.received_at ? incomeRes.data.received_at.slice(11, 16) : undefined, incomeBankAccountId: incomeRes.data?.bank_account_id ?? undefined,
         variableExpenses: (expensesRes.data ?? []).map(e => ({ id: e.id, name: e.name, value: Number(e.value), paid: e.paid, dueDay: e.due_day ?? undefined })),
-        cardBills: (cardBillsRes.data ?? []).map(cb => ({ id: cb.card_id, name: '', value: Number(cb.value), paid: cb.paid, paymentDate: cb.payment_date ?? undefined, bankAccountId: cb.bank_account_id ?? undefined, categoryId: cb.category_id ?? undefined, details: cb.detalhes ?? undefined })),
-        extraIncomes: (extraIncomesRes.data ?? []).map(ei => ({ id: ei.id, description: ei.description ?? '', value: Number(ei.value) })),
+        cardBills: (cardBillsRes.data ?? []).map(cb => ({ id: cb.card_id, name: '', value: Number(cb.value), paid: cb.paid, paymentDate: cb.payment_date ?? undefined, bankAccountId: cb.bank_account_id ?? undefined, categoryId: cb.category_id ?? undefined, details: cb.detalhes ?? undefined, paidAt: cb.paid_at ?? undefined })),        extraIncomes: (extraIncomesRes.data ?? []).map(ei => ({ id: ei.id, description: ei.description ?? '', value: Number(ei.value) })),
         extraordinaryExpenses: (extraordinaryRes.data ?? []).map(e => ({ id: e.id, name: e.name, value: Number(e.value), paid: e.paid })),
         investments: [],
         manualEntries: (manualRes.data ?? []).filter(m => m.direction === 'entry').map(m => ({ id: m.id, date: m.date, description: m.description, value: Number(m.value), paymentMethod: m.payment_method, bankAccountId: m.bank_account_id ?? undefined, occurredAt: m.occurred_at ?? undefined, categoryId: m.category_id ?? undefined, observation: m.observacao ?? undefined, paidByOthers: m.pago_por_terceiros ?? false })),
@@ -586,12 +585,14 @@ const removeExtraordinaryExpense = useCallback((id: string) => {
   const editSubscription = useCallback((id: string, name: string, value: number, dueDay: number, paymentMethod: string, categoryId?: string) => {
     setSubscriptionsState(prev => prev.map(s => s.id === id ? { ...s, name, value, dueDay, paymentMethod, categoryId } : s));
     const { payment_method, card_id } = paymentMethodToDb(paymentMethod, true);
-    supabase.from('subscriptions').update({ name, value, due_day: dueDay, payment_method, card_id, category_id: categoryId ?? null }).eq('id', id);
+    (supabase as any).from('subscriptions').update({ name, value, due_day: dueDay, payment_method, card_id, category_id: categoryId ?? null }).eq('id', id)
+      .then(({error}: any) => { if (error) console.error("Erro ao editar assinatura:", error); });
   }, []);
 
   const editRecurringExpense = useCallback((id: string, name: string, dueDay: number, categoryId?: string) => {
     setRecurringState(prev => prev.map(re => re.id === id ? { ...re, name, dueDay, categoryId } : re));
-    supabase.from('recurring_expenses').update({ name, due_day: dueDay, category_id: categoryId ?? null }).eq('id', id);
+    (supabase as any).from('recurring_expenses').update({ name, due_day: dueDay, category_id: categoryId ?? null }).eq('id', id)
+      .then(({error}: any) => { if (error) console.error("Erro ao editar recorrente:", error); });
   }, []);
 
   const editCard = useCallback((id: string, name: string, value: number, dueDay: number, categoryId?: string, details?: string) => updateCard(id, { name, value, dueDay, categoryId, details }), [updateCard]);

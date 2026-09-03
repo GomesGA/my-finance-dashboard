@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Plus, Trash2, X, Edit2, Check } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Plus, Trash2, X, Edit2, Check, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LedgerEntry, BankAccount, Category } from '@/types/ledger';
 import { formatCurrency } from '@/lib/format';
@@ -220,7 +220,11 @@ export function LedgerTable({ title, entries, type, bankAccounts = [], onAddBank
                               </span>
                             )}
                             {bank && <span className="px-1.5 py-0.5 bg-background border border-border rounded shadow-sm font-medium">{bank.name}</span>}
-                            {entry.observation && <span className="italic text-muted-foreground/80 truncate max-w-[200px]" title={entry.observation}>Obs: {entry.observation}</span>}
+                            {entry.observation && (
+                              <span className="flex items-center gap-1 text-muted-foreground hover:text-foreground cursor-help transition-colors" title={entry.observation}>
+                                <Info size={14} className="text-primary/70" />
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
