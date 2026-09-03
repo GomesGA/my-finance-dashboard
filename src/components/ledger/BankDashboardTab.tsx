@@ -42,6 +42,8 @@ export function BankDashboardTab({ ledger }: Props) {
 
   const expensesWithoutBank = computedExits.filter(e => !e.bankAccountId && !e.paidByOthers).reduce((acc, curr) => acc + curr.value, 0);
 
+  const incomeWithoutBank = computedEntries.filter(e => !e.bankAccountId && !e.paidByOthers).reduce((acc, curr) => acc + curr.value, 0);
+
   // Categorias
   const expensesByCategory = categories.map(cat => {
     const total = computedExits.filter(e => e.categoryId === cat.id && !e.paidByOthers).reduce((acc, curr) => acc + curr.value, 0);
@@ -91,8 +93,9 @@ export function BankDashboardTab({ ledger }: Props) {
             {expensesByBank.length === 0 && expensesWithoutBank === 0 && <p className="text-xs text-muted-foreground italic text-center py-4">Nenhuma saída registrada neste mês.</p>}
           </div>
         </div>
-
-        <div className="ledger-card p-6">
+      </div>
+      
+      <div className="ledger-card p-6">
           <h3 className="text-sm font-semibold text-foreground mb-6 flex items-center gap-2">
             <ArrowDownLeft size={18} className="text-success" /> 
             Entradas por Banco
@@ -109,9 +112,19 @@ export function BankDashboardTab({ ledger }: Props) {
                 </div>
               </div>
             ))}
-            {incomeByBank.length === 0 && <p className="text-xs text-muted-foreground italic text-center py-4">Nenhuma entrada vinculada a banco neste mês.</p>}
+            
+            {/* NOVO BLOCO: Entradas (Investimentos/Resgates) sem banco */}
+            {incomeWithoutBank > 0 && (
+              <div className="space-y-2 pt-4 border-t border-border/50">
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium text-muted-foreground italic">Sem banco informado</span>
+                  <span className="font-mono font-semibold text-success/70">{formatCurrency(incomeWithoutBank)}</span>
+                </div>
+              </div>
+            )}
+
+            {incomeByBank.length === 0 && incomeWithoutBank === 0 && <p className="text-xs text-muted-foreground italic text-center py-4">Nenhuma entrada registrada neste mês.</p>}
           </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">

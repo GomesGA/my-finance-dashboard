@@ -432,16 +432,22 @@ export function useLedgerData() {
     if (!userId) return;
     const tempId = crypto.randomUUID(); const occurredAt = time ? `${date}T${time}:00` : undefined; const dbMethod = manualPaymentMethodToDb(paymentMethod);
     const item: ManualEntry = { id: tempId, date, description, value, createdAt: Date.now(), paymentMethod: dbMethod, bankAccountId, occurredAt, categoryId, observation, paidByOthers };
+    
     setMonthDataState(m => ({ ...m, manualEntries: [...(m.manualEntries || []), item] }));
-    supabase.from('manual_transactions').insert({ id: tempId, user_id: userId, month: toMonthDate(monthKey), direction: 'entry', date, description, value, payment_method: dbMethod, bank_account_id: bankAccountId ?? null, occurred_at: occurredAt ?? null, category_id: categoryId ?? null, observacao: observation ?? null, pago_por_terceiros: paidByOthers });
+    
+    (supabase as any).from('manual_transactions').insert({ id: tempId, user_id: userId, month: toMonthDate(monthKey), direction: 'entry', date, description, value, payment_method: dbMethod, bank_account_id: bankAccountId ?? null, occurred_at: occurredAt ?? null, category_id: categoryId ?? null, observacao: observation ?? null, pago_por_terceiros: paidByOthers })
+      .then(({error}: any) => { if (error) console.error("Erro ao salvar entrada:", error); });
   }, [userId, monthKey]);
 
   const addManualExit = useCallback((date: string, description: string, value: number, paymentMethod?: string, bankAccountId?: string, time?: string, categoryId?: string, observation?: string, paidByOthers: boolean = false) => {
     if (!userId) return;
     const tempId = crypto.randomUUID(); const occurredAt = time ? `${date}T${time}:00` : undefined; const dbMethod = manualPaymentMethodToDb(paymentMethod);
     const item: ManualEntry = { id: tempId, date, description, value, createdAt: Date.now(), paymentMethod: dbMethod, bankAccountId, occurredAt, categoryId, observation, paidByOthers };
+    
     setMonthDataState(m => ({ ...m, manualExits: [...(m.manualExits || []), item] }));
-    supabase.from('manual_transactions').insert({ id: tempId, user_id: userId, month: toMonthDate(monthKey), direction: 'exit', date, description, value, payment_method: dbMethod, bank_account_id: bankAccountId ?? null, occurred_at: occurredAt ?? null, category_id: categoryId ?? null, observacao: observation ?? null, pago_por_terceiros: paidByOthers });
+    
+    (supabase as any).from('manual_transactions').insert({ id: tempId, user_id: userId, month: toMonthDate(monthKey), direction: 'exit', date, description, value, payment_method: dbMethod, bank_account_id: bankAccountId ?? null, occurred_at: occurredAt ?? null, category_id: categoryId ?? null, observacao: observation ?? null, pago_por_terceiros: paidByOthers })
+      .then(({error}: any) => { if (error) console.error("Erro ao salvar saída:", error); });
   }, [userId, monthKey]);
 
   const removeManualEntry = useCallback((id: string) => { 
