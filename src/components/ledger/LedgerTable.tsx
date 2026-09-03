@@ -50,15 +50,10 @@ export function LedgerTable({ title, entries, type, bankAccounts = [], onAddBank
     const isCard = form.paymentMethod === 'Cartão';
     
     onAddManual?.(
-      form.date, 
-      form.description, 
-      numericValue, 
-      form.paymentMethod, 
-      isCard ? undefined : form.bankAccountId, 
-      isCard ? undefined : form.time, 
+      form.date, form.description, numericValue, form.paymentMethod, 
+      isCard ? undefined : form.bankAccountId, isCard ? undefined : form.time, 
       isIncome ? undefined : (form.categoryId || undefined),
-      form.observation,
-      form.paidByOthers
+      form.observation, form.paidByOthers
     );
     
     setForm({ date: '', description: '', value: '', paymentMethod: 'Pix', bankAccountId: '', time: '', categoryId: '', observation: '', paidByOthers: false });
@@ -202,8 +197,13 @@ export function LedgerTable({ title, entries, type, bankAccounts = [], onAddBank
                     
                     <td className="px-3 py-3 text-foreground">
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          {cat && <span className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: cat.color || '#ccc' }} title={cat.name} />}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {cat && (
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted/40 border border-border text-muted-foreground whitespace-nowrap" title={cat.name}>
+                              <span className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: cat.color || '#ccc' }} />
+                              {cat.name}
+                            </span>
+                          )}
                           
                           <span className={`font-medium ${entry.paidByOthers ? 'line-through text-muted-foreground' : ''}`}>
                             {entry.description}
@@ -217,7 +217,7 @@ export function LedgerTable({ title, entries, type, bankAccounts = [], onAddBank
                         </div>
                         
                         {(bank || entry.observation) && (
-                          <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground pl-[18px]">
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground pt-1">
                             {bank && <span className="px-1.5 py-0.5 bg-background border border-border rounded shadow-sm font-medium">{bank.name}</span>}
                             {entry.observation && <span className="italic text-muted-foreground/80 truncate max-w-[200px]" title={entry.observation}>Obs: {entry.observation}</span>}
                           </div>
