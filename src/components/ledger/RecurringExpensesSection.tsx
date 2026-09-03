@@ -99,7 +99,7 @@ export function RecurringExpensesSection({ recurring, monthData, bankAccounts, c
                   <div className="flex flex-col min-w-0">
                     <span className={`text-sm font-medium truncate ${isPaid ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{re.name}</span>
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      Pagamento: dia {re.dueDay}
+                      Vencimento: dia {re.dueDay}
                       {category && <span className="flex items-center gap-1">· <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: category.color }} />{category.name}</span>}
                     </span>
                   </div>
