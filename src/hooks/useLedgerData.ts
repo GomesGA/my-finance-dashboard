@@ -513,16 +513,20 @@ export function useLedgerData() {
     const tempId = crypto.randomUUID(); const occurredOn = date || toMonthDate(monthKey);
     const item: InvestmentRow = { id: tempId, type, description, value, date: occurredOn, action, createdAt: Date.now(), month: monthKey };
     setInvestmentsState(prev => [...prev, item]);
-    supabase.from('investments').insert({ id: tempId, user_id: userId, month: toMonthDate(monthKey), type, description, value, occurred_on: occurredOn, action });
+    
+    // Inserção blindada com verificação de erro
+    (supabase as any).from('investments').insert({ id: tempId, user_id: userId, month: toMonthDate(monthKey), type, description, value, occurred_on: occurredOn, action })
+      .then(({error}: any) => { if (error) console.error("Erro ao inserir investimento/resgate:", error); });
   }, [userId, monthKey]);
 
   const removeInvestment = useCallback((id: string) => { 
     setInvestmentsState(prev => prev.filter(i => i.id !== id)); 
-    (supabase as any).from('investments').delete().eq('id', id).then(({error}: any) => {
-      if (error) console.error("Erro ao apagar investimento/resgate:", error);
-    }); 
+    
+    // Exclusão blindada com verificação de erro
+    (supabase as any).from('investments').delete().eq('id', id)
+      .then(({error}: any) => { if (error) console.error("Erro ao apagar investimento/resgate:", error); }); 
   }, []);
-  
+
   const addGoal = useCallback((name: string, targetValue: number) => {
     if (!userId) return;
     const tempId = crypto.randomUUID(); const goal: Goal = { id: tempId, name, targetValue, purchased: false, createdAt: Date.now() };
@@ -596,13 +600,36 @@ const removeExtraordinaryExpense = useCallback((id: string) => {
 
   const editLedgerEntry = useCallback((idStr: string, source: string, date: string, description: string, value: number) => {
     const id = idStr.replace(/^[a-z]+-/, '');
-    if (source === 'manual-entry') { setMonthDataState(m => ({ ...m, manualEntries: (m.manualEntries || []).map(e => e.id === id ? { ...e, date, description, value } : e) })); supabase.from('manual_transactions').update({ date, description, value }).eq('id', id); }
-    else if (source === 'manual-exit') { setMonthDataState(m => ({ ...m, manualExits: (m.manualExits || []).map(e => e.id === id ? { ...e, date, description, value } : e) })); supabase.from('manual_transactions').update({ date, description, value }).eq('id', id); }
-    else if (source === 'card') { updateCard(id, { name: description, value, paymentDate: date }); }
-    else if (source === 'recurring') { updateRecurringValue(id, value); updateRecurringDate(id, date); setRecurringState(prev => prev.map(re => re.id === id ? { ...re, name: description } : re)); supabase.from('recurring_expenses').update({ name: description }).eq('id', id); }
-    else if (source === 'subscription') { updateSubscriptionValue(id, value); updateSubscriptionDate(id, date); setSubscriptionsState(prev => prev.map(s => s.id === id ? { ...s, name: description } : s)); supabase.from('subscriptions').update({ name: description }).eq('id', id); }
-    else if (source === 'salary') { setIncome(value, date); }
-    else if (source === 'investment-deposit' || source === 'investment-withdraw' || source === 'investment-yield') { const cleanDesc = description.replace(/^(Aporte|Resgate|Rendimento) (CDB|Bitcoin)( - )?/, ''); setInvestmentsState(prev => prev.map(inv => inv.id === id ? { ...inv, date, description: cleanDesc, value } : inv)); supabase.from('investments').update({ occurred_on: date, description: cleanDesc, value }).eq('id', id); }
+    
+    if (source === 'manual-entry') { 
+      setMonthDataState(m => ({ ...m, manualEntries: (m.manualEntries || []).map(e => e.id === id ? { ...e, date, description, value } : e) })); 
+      (supabase as any).from('manual_transactions').update({ date, description, value }).eq('id', id).then(({error}: any) => { if (error) console.error(error); }); 
+    }
+    else if (source === 'manual-exit') { 
+      setMonthDataState(m => ({ ...m, manualExits: (m.manualExits || []).map(e => e.id === id ? { ...e, date, description, value } : e) })); 
+      (supabase as any).from('manual_transactions').update({ date, description, value }).eq('id', id).then(({error}: any) => { if (error) console.error(error); }); 
+    }
+    else if (source === 'card') { 
+      updateCard(id, { name: description, value, paymentDate: date }); 
+    }
+    else if (source === 'recurring') { 
+      updateRecurringValue(id, value); updateRecurringDate(id, date); 
+      setRecurringState(prev => prev.map(re => re.id === id ? { ...re, name: description } : re)); 
+      (supabase as any).from('recurring_expenses').update({ name: description }).eq('id', id).then(({error}: any) => { if (error) console.error(error); }); 
+    }
+    else if (source === 'subscription') { 
+      updateSubscriptionValue(id, value); updateSubscriptionDate(id, date); 
+      setSubscriptionsState(prev => prev.map(s => s.id === id ? { ...s, name: description } : s)); 
+      (supabase as any).from('subscriptions').update({ name: description }).eq('id', id).then(({error}: any) => { if (error) console.error(error); }); 
+    }
+    else if (source === 'salary') { 
+      setIncome(value, date); 
+    }
+    else if (source === 'investment-deposit' || source === 'investment-withdraw' || source === 'investment-yield') { 
+      const cleanDesc = description.replace(/^(Aporte|Resgate|Rendimento) (CDB|Bitcoin)( - )?/, ''); 
+      setInvestmentsState(prev => prev.map(inv => inv.id === id ? { ...inv, date, description: cleanDesc, value } : inv)); 
+      (supabase as any).from('investments').update({ occurred_on: date, description: cleanDesc, value }).eq('id', id).then(({error}: any) => { if (error) console.error("Erro ao editar investimento:", error); }); 
+    }
   }, [updateCard, updateRecurringValue, updateRecurringDate, updateSubscriptionValue, updateSubscriptionDate, setIncome]);
 
   // ===== Ordenação e Computed =====
