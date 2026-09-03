@@ -402,12 +402,16 @@ export function useLedgerData() {
   
   const removeExpense = useCallback((id: string) => {
     setMonthDataState(m => ({ ...m, variableExpenses: m.variableExpenses.filter(e => e.id !== id) }));
-    supabase.from('expenses').delete().eq('id', id);
+    (supabase as any).from('expenses').delete().eq('id', id).then(({error}: any) => { 
+      if (error) console.error("Erro ao apagar despesa:", error); 
+    });
   }, []);
   
   const removeExtraIncome = useCallback((id: string) => {
     setMonthDataState(m => ({ ...m, extraIncomes: (m.extraIncomes || []).filter(e => e.id !== id) }));
-    supabase.from('extra_incomes').delete().eq('id', id);
+    (supabase as any).from('extra_incomes').delete().eq('id', id).then(({error}: any) => { 
+      if (error) console.error("Erro ao apagar renda extra:", error); 
+    });
   }, []);
 
   // ===== Entradas/saídas manuais =====
@@ -421,8 +425,6 @@ export function useLedgerData() {
     supabase.from('manual_transactions').insert({ id: tempId, user_id: userId, month: toMonthDate(monthKey), direction: 'entry', date, description, value, payment_method: dbMethod, bank_account_id: bankAccountId ?? null, occurred_at: occurredAt ?? null, category_id: categoryId ?? null, observacao: observation ?? null, pago_por_terceiros: paidByOthers });
   }, [userId, monthKey]);
 
-  const removeManualEntry = useCallback((id: string) => { setMonthDataState(m => ({ ...m, manualEntries: (m.manualEntries || []).filter(e => e.id !== id) })); supabase.from('manual_transactions').delete().eq('id', id); }, []);
-
   const addManualExit = useCallback((date: string, description: string, value: number, paymentMethod?: string, bankAccountId?: string, time?: string, categoryId?: string, observation?: string, paidByOthers: boolean = false) => {
     if (!userId) return;
     const tempId = crypto.randomUUID(); const occurredAt = time ? `${date}T${time}:00` : undefined; const dbMethod = manualPaymentMethodToDb(paymentMethod);
@@ -431,7 +433,20 @@ export function useLedgerData() {
     supabase.from('manual_transactions').insert({ id: tempId, user_id: userId, month: toMonthDate(monthKey), direction: 'exit', date, description, value, payment_method: dbMethod, bank_account_id: bankAccountId ?? null, occurred_at: occurredAt ?? null, category_id: categoryId ?? null, observacao: observation ?? null, pago_por_terceiros: paidByOthers });
   }, [userId, monthKey]);
 
-  const removeManualExit = useCallback((id: string) => { setMonthDataState(m => ({ ...m, manualExits: (m.manualExits || []).filter(e => e.id !== id) })); supabase.from('manual_transactions').delete().eq('id', id); }, []);
+  const removeManualEntry = useCallback((id: string) => { 
+    setMonthDataState(m => ({ ...m, manualEntries: (m.manualEntries || []).filter(e => e.id !== id) })); 
+    (supabase as any).from('manual_transactions').delete().eq('id', id).then(({error}: any) => { 
+      if (error) console.error("Erro ao apagar entrada:", error); 
+    }); 
+  }, []);
+
+  const removeManualExit = useCallback((id: string) => { 
+    setMonthDataState(m => ({ ...m, manualExits: (m.manualExits || []).filter(e => e.id !== id) })); 
+    (supabase as any).from('manual_transactions').delete().eq('id', id).then(({error}: any) => { 
+      if (error) console.error("Erro ao apagar saída:", error); 
+    }); 
+  }, []);
+
 
   // ===== Parcelas =====
   const activeInstallments = useMemo(() => installmentsState.filter(inst => { const diff = differenceInMonths(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), monthStartDate(inst.startDate)); return diff >= 0 && diff < inst.totalMonths; }), [installmentsState, currentDate]);
@@ -538,9 +553,12 @@ export function useLedgerData() {
     if (patch.paid !== undefined) dbPatch.paid = patch.paid;
     if (Object.keys(dbPatch).length) supabase.from('extraordinary_expenses').update(dbPatch).eq('id', id);
   }, []);
-  const removeExtraordinaryExpense = useCallback((id: string) => {
+
+const removeExtraordinaryExpense = useCallback((id: string) => {
     setMonthDataState(m => ({ ...m, extraordinaryExpenses: (m.extraordinaryExpenses || []).filter(e => e.id !== id) }));
-    supabase.from('extraordinary_expenses').delete().eq('id', id);
+    (supabase as any).from('extraordinary_expenses').delete().eq('id', id).then(({error}: any) => { 
+      if (error) console.error("Erro ao apagar despesa extra:", error); 
+    });
   }, []);
 
   // ===== Edição Rápida e Remoção Geral =====
