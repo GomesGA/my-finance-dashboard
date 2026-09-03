@@ -214,9 +214,21 @@ export function useLedgerData() {
   }, [userId]);
 
   const addCategory = useCallback((name: string, color?: string) => {
-    const tempId = crypto.randomUUID(); const category: Category = { id: tempId, name, color, createdAt: Date.now() };
+    const tempId = crypto.randomUUID(); 
+    const category: Category = { id: tempId, name, color, createdAt: Date.now() };
+    
     setCategoriesState(prev => [...prev, category]);
-    if (userId) supabase.from('categories').insert({ id: tempId, user_id: userId, name, color: color ?? null });
+    
+    if (userId) {
+      (supabase as any).from('categories').insert({ id: tempId, user_id: userId, name, color: color ?? null })
+        .then(({ error }: any) => { 
+          if (error) {
+            console.error("Erro ao criar categoria:", error);
+            alert(`Erro ao salvar categoria: ${error.message}`);
+          }
+        });
+    }
+    
     return category;
   }, [userId]);
 

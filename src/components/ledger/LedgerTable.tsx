@@ -197,14 +197,8 @@ export function LedgerTable({ title, entries, type, bankAccounts = [], onAddBank
                     
                     <td className="px-3 py-3 text-foreground">
                       <div className="flex flex-col gap-1">
+                        {/* Linha principal: Apenas a descrição e o selo de terceiros */}
                         <div className="flex flex-wrap items-center gap-2">
-                          {cat && (
-                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted/40 border border-border text-muted-foreground whitespace-nowrap" title={cat.name}>
-                              <span className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: cat.color || '#ccc' }} />
-                              {cat.name}
-                            </span>
-                          )}
-                          
                           <span className={`font-medium ${entry.paidByOthers ? 'line-through text-muted-foreground' : ''}`}>
                             {entry.description}
                           </span>
@@ -216,8 +210,15 @@ export function LedgerTable({ title, entries, type, bankAccounts = [], onAddBank
                           )}
                         </div>
                         
-                        {(bank || entry.observation) && (
+                        {/* Linha secundária: Categoria, Banco e Observação agrupados */}
+                        {(cat || bank || entry.observation) && (
                           <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground pt-1">
+                            {cat && (
+                              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded font-medium bg-muted/40 border border-border text-muted-foreground whitespace-nowrap" title={cat.name}>
+                                <span className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: cat.color || '#ccc' }} />
+                                {cat.name}
+                              </span>
+                            )}
                             {bank && <span className="px-1.5 py-0.5 bg-background border border-border rounded shadow-sm font-medium">{bank.name}</span>}
                             {entry.observation && <span className="italic text-muted-foreground/80 truncate max-w-[200px]" title={entry.observation}>Obs: {entry.observation}</span>}
                           </div>
