@@ -516,8 +516,13 @@ export function useLedgerData() {
     supabase.from('investments').insert({ id: tempId, user_id: userId, month: toMonthDate(monthKey), type, description, value, occurred_on: occurredOn, action });
   }, [userId, monthKey]);
 
-  const removeInvestment = useCallback((id: string) => { setInvestmentsState(prev => prev.filter(i => i.id !== id)); supabase.from('investments').delete().eq('id', id); }, []);
-
+  const removeInvestment = useCallback((id: string) => { 
+    setInvestmentsState(prev => prev.filter(i => i.id !== id)); 
+    (supabase as any).from('investments').delete().eq('id', id).then(({error}: any) => {
+      if (error) console.error("Erro ao apagar investimento/resgate:", error);
+    }); 
+  }, []);
+  
   const addGoal = useCallback((name: string, targetValue: number) => {
     if (!userId) return;
     const tempId = crypto.randomUUID(); const goal: Goal = { id: tempId, name, targetValue, purchased: false, createdAt: Date.now() };
