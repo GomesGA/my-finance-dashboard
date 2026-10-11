@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CreditCard, Plus, Trash2, X, Edit2, Check, AlignLeft } from 'lucide-react';
+import { CreditCard, Plus, Trash2, X, Edit2, Check, AlignLeft, Ban, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CardBill, BankAccount, Category } from '@/types/ledger';
 import { CurrencyInput } from '@/components/CurrencyInput';
@@ -15,11 +15,13 @@ interface Props {
   onUpdate: (id: string, patch: Partial<CardBill>) => void;
   onEdit: (id: string, name: string, value: number, dueDay: number, categoryId?: string, details?: string) => void;
   onRemove: (id: string) => void;
+  onToggleCancel?: (id: string) => void;
   onAddBankAccount: (name: string, kind: 'PF' | 'PJ') => BankAccount;
   onAddCategory: (name: string, color?: string) => Category;
+  onOpenCardsTab?: () => void;
 }
 
-export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpdate, onEdit, onRemove, onAddBankAccount, onAddCategory }: Props) {
+export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpdate, onEdit, onRemove, onToggleCancel, onAddBankAccount, onAddCategory, onOpenCardsTab }: Props) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState({ name: '', dueDay: '10', value: 0, categoryId: '', details: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -67,13 +69,25 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
 
   return (
     <section className="ledger-card p-6">
-      <div className="flex justify-between items-center mb-5">
+      <div className="flex justify-between items-center mb-5 flex-wrap gap-2">
         <h2 className="font-semibold flex items-center gap-2 text-foreground">
           <CreditCard size={18} className="text-muted-foreground" /> Faturas de Cartão
         </h2>
-        <button type="button" onClick={() => setShowAddForm(true)} className="ledger-btn-outline flex items-center gap-1">
-          <Plus size={14} /> Novo Cartão
-        </button>
+        <div className="flex items-center gap-1.5">
+          {onOpenCardsTab && (
+            <button
+              type="button"
+              onClick={onOpenCardsTab}
+              className="ledger-btn-outline text-xs flex items-center gap-1 hover:border-primary"
+              title="Abrir aba de faturas e compras detalhadas"
+            >
+              <CreditCard size={13} /> Detalhar Faturas
+            </button>
+          )}
+          <button type="button" onClick={() => setShowAddForm(true)} className="ledger-btn-outline flex items-center gap-1 text-xs">
+            <Plus size={13} /> Novo Cartão
+          </button>
+        </div>
       </div>
 
       {/* Formulário animado para cadastrar novo cartão */}
@@ -188,20 +202,43 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
                       <input type="checkbox" checked={card.paid} onChange={e => e.target.checked ? setPayingId(card.id) : onUpdate(card.id, { paid: false })} className="ledger-checkbox" />
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className={`text-sm font-medium truncate ${card.paid ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{card.name || 'Novo Cartão'}</span>
+                      <span className={`text-sm font-medium truncate ${card.paid ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                        {card.name || 'Novo Cartão'}
+                        {card.isCancelled && <span className="text-[10px] text-destructive bg-destructive/10 px-1.5 py-0.5 rounded ml-1.5 font-normal">Cancelado</span>}
+                      </span>
                       <span className="text-[10px] text-muted-foreground">Pagamento: dia {card.dueDay || 1}</span>
                       
-                      {/* Botão para exibir o detalhamento se houver algo anotado */}
-                      {card.details && (
-                        <button onClick={() => setExpandedId(expandedId === card.id ? null : card.id)} className="text-[10px] text-primary flex items-center gap-1 mt-0.5 hover:underline w-max">
-                          <AlignLeft size={10} /> {expandedId === card.id ? 'Ocultar rascunho' : 'Ver rascunho'}
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {onOpenCardsTab && (
+                          <button
+                            type="button"
+                            onClick={onOpenCardsTab}
+                            className="text-[10px] text-primary flex items-center gap-0.5 hover:underline font-medium"
+                          >
+                            Ver compras da fatura →
+                          </button>
+                        )}
+                        {card.details && (
+                          <button onClick={() => setExpandedId(expandedId === card.id ? null : card.id)} className="text-[10px] text-muted-foreground flex items-center gap-1 hover:underline">
+                            <AlignLeft size={10} /> {expandedId === card.id ? 'Ocultar rascunho' : 'Ver rascunho'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0 pl-2">
                     <span className="font-mono text-sm font-semibold text-foreground">{formatCurrency(card.value || 0)}</span>
                     <div className="flex opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity gap-1">
+                      {onToggleCancel && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleCancel(card.id)}
+                          className={`p-1.5 ${card.isCancelled ? 'text-amber-500 hover:text-foreground' : 'text-muted-foreground hover:text-destructive'}`}
+                          title={card.isCancelled ? 'Reativar Cartão' : 'Marcar Cartão como Cancelado'}
+                        >
+                          {card.isCancelled ? <RotateCcw size={14} /> : <Ban size={14} />}
+                        </button>
+                      )}
                       <button type="button" onClick={() => startEdit(card)} className="p-1.5 text-muted-foreground hover:text-primary"><Edit2 size={14} /></button>
                       <button type="button" onClick={() => onRemove(card.id)} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
                     </div>
@@ -231,7 +268,20 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
       <PaymentModal
         open={!!payingId}
         onClose={() => setPayingId(null)}
-        onConfirm={(bankAccountId, paidAtIso) => payingId && onUpdate(payingId, { paid: true, paymentDate: paidAtIso.slice(0, 10), bankAccountId, paidAt: paidAtIso })}
+        initialValue={cards.find(c => c.id === payingId)?.value}
+        onConfirm={(bankAccountId, paidAtIso, paidValue) => {
+          if (payingId) {
+            const currentVal = cards.find(c => c.id === payingId)?.value || 0;
+            onUpdate(payingId, {
+              paid: true,
+              value: paidValue !== undefined ? paidValue : currentVal,
+              paymentDate: paidAtIso.slice(0, 10),
+              bankAccountId,
+              paidAt: paidAtIso
+            });
+            setPayingId(null);
+          }
+        }}
         bankAccounts={bankAccounts}
         onAddBankAccount={onAddBankAccount}
         title="Confirmar Pagamento da Fatura"

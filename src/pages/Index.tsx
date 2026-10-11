@@ -6,15 +6,13 @@ import { BankDashboardTab } from '@/components/ledger/BankDashboardTab';
 import { GoalsTab } from '@/components/ledger/GoalsTab';
 import { InvestmentsTab } from '@/components/ledger/InvestmentsTab';
 import { InstallmentsPurchasesTab } from '@/components/ledger/InstallmentsTab';
+import { CardsTab } from '@/components/ledger/CardsTab';
 import { Auth } from '@/components/Auth';
 import { supabase } from '@/lib/supabase';
 import { Session } from '@supabase/supabase-js';
-import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
 import { DashboardTab } from '@/components/ledger/DashboardTab';
 
-// 1. O TypeScript agora reconhece 'dash' como a nova aba (substituindo 'categories')
-export type TabId = 'dashboard' | 'goals' | 'investments' | 'installments' | 'dash';
+export type TabId = 'dashboard' | 'cards' | 'installments' | 'dash' | 'goals' | 'investments';
 
 const Index = () => {
   const ledger = useLedgerData();
@@ -46,11 +44,12 @@ const Index = () => {
       />
 
       <main className="w-full max-w-[1900px] mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-        {activeTab === 'dashboard' && <DashboardTab ledger={ledger} />}
+        {activeTab === 'dashboard' && <DashboardTab ledger={ledger} onOpenCardsTab={() => setActiveTab('cards')} />}
+        {activeTab === 'cards' && <CardsTab ledger={ledger} onGoToInstallments={() => setActiveTab('installments')} />}
+        {activeTab === 'installments' && <InstallmentsPurchasesTab ledger={ledger} onGoToDashboard={() => setActiveTab('dashboard')} />}
         {activeTab === 'dash' && <BankDashboardTab ledger={ledger} />}
         {activeTab === 'goals' && <GoalsTab ledger={ledger} />}
         {activeTab === 'investments' && <InvestmentsTab ledger={ledger} />}
-        {activeTab === 'installments' && <InstallmentsPurchasesTab ledger={ledger} onGoToDashboard={() => setActiveTab('dashboard')} />}
       </main>
     </div>
   );

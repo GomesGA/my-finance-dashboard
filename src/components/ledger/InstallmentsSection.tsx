@@ -43,7 +43,7 @@ export function InstallmentsSection({ installments, monthKey, cards, bankAccount
           <motion.form initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} onSubmit={handleSubmit} className="mb-5 p-4 bg-muted rounded-lg border border-border space-y-3">
             <div className="flex justify-between items-center"><span className="text-sm font-semibold text-foreground">Nova Compra</span><button type="button" onClick={() => setShowForm(false)} className="text-muted-foreground hover:text-foreground"><X size={16} /></button></div>
             <input type="text" placeholder="Nome" className="ledger-input w-full" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} autoFocus />
-            <select className="ledger-input w-full bg-background" value={form.paymentMethod} onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))}><option value="Pix">Pix / Boleto</option>{cards.map(c => <option key={c.id} value={c.id}>Cartão: {c.name}</option>)}</select>
+            <select className="ledger-input w-full bg-background" value={form.paymentMethod} onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))}><option value="Pix">Pix / Boleto</option>{cards.filter(c => !c.isCancelled).map(c => <option key={c.id} value={c.id}>Cartão: {c.name}</option>)}</select>
             <div className="grid grid-cols-3 gap-3">
               <div className="relative col-span-2"><span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span><CurrencyInput placeholder="0,00" className="ledger-input w-full font-mono pl-7" value={form.value} onChange={val => setForm(f => ({ ...f, value: val }))} /></div>
               <input type="number" placeholder="Nº Parc." className="ledger-input w-full" value={form.total} onChange={e => setForm(f => ({ ...f, total: e.target.value }))} />
@@ -63,7 +63,7 @@ export function InstallmentsSection({ installments, monthKey, cards, bankAccount
               return (
                 <motion.div key={inst.id} className="p-3 bg-muted/30 border border-border rounded-lg space-y-2">
                   <input type="text" className="ledger-input w-full text-xs" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
-                  <select className="ledger-input w-full text-xs bg-background" value={editForm.paymentMethod} onChange={e => setEditForm(f => ({ ...f, paymentMethod: e.target.value }))}><option value="Pix">Pix / Boleto</option>{cards.map(c => <option key={c.id} value={c.id}>Cartão: {c.name}</option>)}</select>
+                  <select className="ledger-input w-full text-xs bg-background" value={editForm.paymentMethod} onChange={e => setEditForm(f => ({ ...f, paymentMethod: e.target.value }))}><option value="Pix">Pix / Boleto</option>{cards.map(c => <option key={c.id} value={c.id}>Cartão: {c.name}{c.isCancelled ? ' (Cancelado)' : ''}</option>)}</select>
                   <div className="flex gap-2"><CurrencyInput className="ledger-input w-full font-mono text-xs" value={editForm.value} onChange={val => setEditForm(f => ({ ...f, value: val }))} /><input type="number" className="ledger-input w-20 text-xs text-center" value={editForm.total} onChange={e => setEditForm(f => ({ ...f, total: e.target.value }))} placeholder="Meses" /></div>
                   <CategoryField value={editForm.categoryId} onChange={categoryId => setEditForm(f => ({ ...f, categoryId }))} categories={categories} onAddCategory={onAddCategory} label="" />
                   <div className="flex gap-2 mt-2"><button onClick={() => saveEdit(inst.id)} className="flex-1 ledger-btn-primary py-1.5 text-xs flex justify-center items-center gap-1"><Check size={14} /> Salvar</button><button onClick={() => setEditingId(null)} className="flex-1 ledger-btn-outline py-1.5 text-xs flex justify-center items-center gap-1"><X size={14} /> Cancelar</button></div>
@@ -75,11 +75,26 @@ export function InstallmentsSection({ installments, monthKey, cards, bankAccount
               <motion.div key={inst.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border group mb-2">
                 <div className="flex items-center gap-3 overflow-hidden">
                   <div className="w-4 flex items-center justify-center shrink-0">
-                    {isPix ? <input type="checkbox" checked={isPaid} onChange={() => isPaid ? onUnpay(inst.id) : setPayingId(inst.id)} className="ledger-checkbox" /> : <CreditCard size={14} className="text-muted-foreground/50" />}
+                    {isPix ? (
+                      <input type="checkbox" checked={isPaid} onChange={() => isPaid ? onUnpay(inst.id) : setPayingId(inst.id)} className="ledger-checkbox" />
+                    ) : (
+                      isPaid ? (
+                        <div title={`Paga na fatura (${cardName})`} className="w-4 h-4 rounded-full bg-success/20 text-success flex items-center justify-center">
+                          <Check size={11} className="stroke-[3]" />
+                        </div>
+                      ) : (
+                        <div title={`Aguardando pagamento da fatura (${cardName})`} className="w-4 h-4 flex items-center justify-center text-muted-foreground/60">
+                          <CreditCard size={14} />
+                        </div>
+                      )
+                    )}
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <span className={`text-sm font-medium truncate ${(isPaid && isPix) ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{inst.name}</span>
-                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">Parc. {num}/{inst.totalMonths} • {cardName}</span>
+                    <span className={`text-sm font-medium truncate ${isPaid ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{inst.name}</span>
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      Parc. {num}/{inst.totalMonths} • {cardName}
+                      {!isPix && isPaid && <span className="text-success font-semibold ml-0.5">(Paga na fatura)</span>}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0 pl-2">

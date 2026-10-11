@@ -1,6 +1,6 @@
 export interface Expense { id: string; name: string; value: number; paid: boolean; dueDay?: number; createdAt?: number; }
 export interface RecurringExpense { id: string; name: string; value: number; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; categoryId?: string; }
-export interface CardBill { id: string; name: string; value: number; paid: boolean; dueDay?: number; paymentDate?: string; bankAccountId?: string; paidAt?: string; categoryId?: string; createdAt?: number; details?: string;}
+export interface CardBill { id: string; name: string; value: number; paid: boolean; dueDay?: number; paymentDate?: string; bankAccountId?: string; paidAt?: string; categoryId?: string; createdAt?: number; details?: string; isCancelled?: boolean; dynamicSum?: number; }
 export interface ExtraIncome { id: string; description: string; value: number; createdAt?: number; }
 export interface Investment { id: string; type: 'CDB' | 'Bitcoin'; description: string; value: number; date: string; action: 'deposit' | 'withdraw' | 'yield'; createdAt?: number; bankAccountId?: string; categoryId?: string; }
 
@@ -42,7 +42,17 @@ export interface ManualEntry {
   paidByOthers?: boolean;   // <-- Adicionado
 }
 
-export interface Card { id: string; name: string; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; }
+export interface Card { id: string; name: string; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; isCancelled?: boolean; }
+export interface CardInvoiceItem {
+  id: string;
+  cardId: string;
+  month: string;
+  date: string;
+  description: string;
+  value: number;
+  categoryId?: string;
+  createdAt?: number;
+}
 export interface Subscription { id: string; name: string; value: number; dueDay: number; startMonth: string; endMonth?: string; createdAt?: number; paymentMethod?: string; categoryId?: string; }
 export interface Installment { id: string; name: string; monthlyValue: number; totalMonths: number; startDate: string; paidMonths: string[]; createdAt?: number; paymentMethod?: string; dueDay?: number; paidDates?: Record<string, string>; paidBankAccounts?: Record<string, string>; categoryId?: string; }
 export interface BankAccount { id: string; name: string; kind: 'PF' | 'PJ'; createdAt?: number; }
@@ -55,6 +65,7 @@ export interface MonthData {
   incomeBankAccountId?: string;
   variableExpenses: Expense[];
   cardBills: CardBill[];
+  cardInvoiceItems: CardInvoiceItem[];
   extraIncomes: ExtraIncome[];
   extraordinaryExpenses: Expense[];
   investments: Investment[];
@@ -86,6 +97,7 @@ export const emptyMonthData: MonthData = {
   income: 0,
   variableExpenses: [],
   cardBills: [],
+  cardInvoiceItems: [],
   extraIncomes: [],
   extraordinaryExpenses: [],
   investments: [],

@@ -335,7 +335,7 @@ export function InstallmentsPurchasesTab({ ledger, onGoToDashboard }: Props) {
             <option value="Pix">Pix</option>
             {cards.map(c => (
               <option key={c.id} value={c.id}>
-                Cartão: {c.name}
+                Cartão: {c.name}{c.isCancelled ? ' (Cancelado)' : ''}
               </option>
             ))}
           </select>
@@ -570,7 +570,7 @@ export function InstallmentsPurchasesTab({ ledger, onGoToDashboard }: Props) {
                       className="ledger-input w-full text-xs bg-background"
                     >
                       <option value="Pix">Pix / Conta</option>
-                      {cards.map(c => (
+                      {cards.filter(c => !c.isCancelled).map(c => (
                         <option key={c.id} value={c.id}>
                           Cartão: {c.name}
                         </option>
@@ -687,7 +687,7 @@ export function InstallmentsPurchasesTab({ ledger, onGoToDashboard }: Props) {
                       <option value="Pix">Pix / Conta</option>
                       {cards.map(c => (
                         <option key={c.id} value={c.id}>
-                          Cartão: {c.name}
+                          Cartão: {c.name}{c.isCancelled ? ' (Cancelado)' : ''}
                         </option>
                       ))}
                     </select>

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Sun, Moon, LayoutDashboard, Target, TrendingUp, Landmark, ShoppingBag, Tag, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sun, Moon, LayoutDashboard, Target, TrendingUp, Landmark, ShoppingBag, Tag, LogOut, CreditCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { TabId } from '@/pages/Index';
@@ -16,8 +16,9 @@ interface Props {
 
 const tabs: { id: TabId; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'cards', label: 'Faturas', icon: CreditCard },
   { id: 'installments', label: 'Parcelas', icon: ShoppingBag },
-  { id: 'dash', label: 'Dash Bancos', icon: Tag },
+  { id: 'dash', label: 'Dash Bancos', icon: Landmark },
   { id: 'goals', label: 'Metas', icon: Target },
   { id: 'investments', label: 'Investimentos', icon: TrendingUp },
 ];

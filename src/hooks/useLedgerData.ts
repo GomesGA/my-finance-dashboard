@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { format, addMonths, subMonths, differenceInMonths } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import type { LedgerData, MonthData, Expense, CardBill, Installment, Investment, Goal, LedgerEntry, RecurringExpense, ManualEntry, Card, Subscription, BankAccount, Category } from '@/types/ledger';
+import type { LedgerData, MonthData, Expense, CardBill, Installment, Investment, Goal, LedgerEntry, RecurringExpense, ManualEntry, Card, Subscription, BankAccount, Category, CardInvoiceItem } from '@/types/ledger';
 import { emptyMonthData } from '@/types/ledger';
 
 const toMonthDate = (monthKey: string) => `${monthKey}-01`;
@@ -162,7 +162,7 @@ export function useLedgerData() {
       loadedUserRef.current = uid;
       setUserId(uid);
 
-      const [cardsRes, goalsRes, recurringRes, subsRes, purchasesRes, itemsRes, invRes, banksRes, categoriesRes] = await Promise.all([
+      const [cardsRes, goalsRes, recurringRes, subsRes, purchasesRes, itemsRes, invRes, banksRes, categoriesRes, paidCardBillsRes] = await Promise.all([
         supabase.from('cards').select('*').order('created_at'),
         supabase.from('goals').select('*').order('created_at'),
         supabase.from('recurring_expenses').select('*').order('created_at'),
@@ -172,13 +172,14 @@ export function useLedgerData() {
         supabase.from('investments').select('*').order('occurred_on'),
         supabase.from('bank_accounts').select('*').order('created_at'),
         supabase.from('categories').select('*').order('created_at'),
+        supabase.from('card_bills').select('card_id, month, paid, paid_at, payment_date, bank_account_id').eq('paid', true),
       ]);
       if (loadedUserRef.current !== uid) return;
 
-      const failed = [cardsRes, goalsRes, recurringRes, subsRes, purchasesRes, itemsRes, invRes, banksRes, categoriesRes].find(r => r.error);
+      const failed = [cardsRes, goalsRes, recurringRes, subsRes, purchasesRes, itemsRes, invRes, banksRes, categoriesRes, paidCardBillsRes].find(r => r.error);
       if (failed?.error) reportError('Erro ao carregar seus dados', failed.error);
 
-      setCardsState((cardsRes.data ?? []).map(c => ({ id: c.id, name: c.name, dueDay: c.due_day, startMonth: c.start_month.slice(0, 7), endMonth: c.end_month?.slice(0, 7), createdAt: new Date(c.created_at).getTime() })));
+      setCardsState((cardsRes.data ?? []).map(c => ({ id: c.id, name: c.name, dueDay: c.due_day, startMonth: c.start_month.slice(0, 7), endMonth: c.end_month?.slice(0, 7), createdAt: new Date(c.created_at).getTime(), isCancelled: !!c.is_cancelled })));
       setGoalsState((goalsRes.data ?? []).map(g => ({ id: g.id, name: g.name, targetValue: Number(g.target_value), purchased: g.purchased, actualPaidValue: g.actual_paid_value != null ? Number(g.actual_paid_value) : undefined, paymentDate: g.payment_date ?? undefined, createdAt: new Date(g.created_at).getTime() })));
       setRecurringState((recurringRes.data ?? []).map(re => ({ id: re.id, name: re.name, value: Number(re.value), dueDay: re.due_day, startMonth: re.start_month.slice(0, 7), endMonth: re.end_month?.slice(0, 7), createdAt: new Date(re.created_at).getTime(), categoryId: re.category_id ?? undefined })));
       setSubscriptionsState((subsRes.data ?? []).map(s => ({ id: s.id, name: s.name, value: Number(s.value), dueDay: s.due_day, startMonth: s.start_month.slice(0, 7), endMonth: s.end_month?.slice(0, 7), createdAt: new Date(s.created_at).getTime(), paymentMethod: paymentMethodFromDb(s.payment_method, s.card_id), categoryId: s.category_id ?? undefined })));
@@ -191,7 +192,7 @@ export function useLedgerData() {
         if (!item.paid) return;
         const monthKeyItem = item.month.slice(0, 7);
         const months = paidMonthsByPurchase.get(item.installment_purchase_id) ?? [];
-        months.push(monthKeyItem);
+        if (!months.includes(monthKeyItem)) months.push(monthKeyItem);
         paidMonthsByPurchase.set(item.installment_purchase_id, months);
         if (item.paid_at) {
           const dates = paidDatesByPurchase.get(item.installment_purchase_id) ?? {};
@@ -204,6 +205,58 @@ export function useLedgerData() {
           paidBankByPurchase.set(item.installment_purchase_id, banks);
         }
       });
+
+      // Vincula faturas de cartão pagas às compras parceladas feitas no cartão
+      const paidCardBillMap = new Map<string, { paid_at?: string; bank_account_id?: string }>();
+      (paidCardBillsRes.data ?? []).forEach(cb => {
+        paidCardBillMap.set(`${cb.card_id}:${cb.month.slice(0, 7)}`, {
+          paid_at: cb.paid_at || (cb.payment_date ? `${cb.payment_date}T12:00:00` : undefined),
+          bank_account_id: cb.bank_account_id ?? undefined,
+        });
+      });
+
+      const unsyncedItems: { installment_purchase_id: string; month: string; paid_at?: string; bank_account_id?: string }[] = [];
+      (purchasesRes.data ?? []).forEach(p => {
+        if (p.payment_method === 'card' && p.card_id) {
+          const start = monthStartDate(p.start_month.slice(0, 7));
+          for (let i = 0; i < p.total_months; i++) {
+            const mKey = format(addMonths(start, i), 'yyyy-MM');
+            const cardBillPaid = paidCardBillMap.get(`${p.card_id}:${mKey}`);
+            if (cardBillPaid) {
+              const months = paidMonthsByPurchase.get(p.id) ?? [];
+              if (!months.includes(mKey)) {
+                months.push(mKey);
+                paidMonthsByPurchase.set(p.id, months);
+                unsyncedItems.push({
+                  installment_purchase_id: p.id,
+                  month: `${mKey}-01`,
+                  paid_at: cardBillPaid.paid_at,
+                  bank_account_id: cardBillPaid.bank_account_id,
+                });
+              }
+              if (cardBillPaid.paid_at) {
+                const dates = paidDatesByPurchase.get(p.id) ?? {};
+                if (!dates[mKey]) dates[mKey] = cardBillPaid.paid_at;
+                paidDatesByPurchase.set(p.id, dates);
+              }
+              if (cardBillPaid.bank_account_id) {
+                const banks = paidBankByPurchase.get(p.id) ?? {};
+                if (!banks[mKey]) banks[mKey] = cardBillPaid.bank_account_id;
+                paidBankByPurchase.set(p.id, banks);
+              }
+            }
+          }
+        }
+      });
+
+      if (unsyncedItems.length > 0) {
+        unsyncedItems.forEach(u => {
+          db.from('installment_items')
+            .update({ paid: true, paid_at: u.paid_at || null, bank_account_id: u.bank_account_id || null })
+            .match({ installment_purchase_id: u.installment_purchase_id, month: u.month })
+            .then(() => {});
+        });
+      }
 
       setInstallmentsState((purchasesRes.data ?? []).map(p => ({ id: p.id, name: p.name, monthlyValue: Number(p.monthly_value), totalMonths: p.total_months, startDate: p.start_month.slice(0, 7), paidMonths: paidMonthsByPurchase.get(p.id) ?? [], createdAt: new Date(p.created_at).getTime(), paymentMethod: paymentMethodFromDb(p.payment_method, p.card_id), dueDay: p.due_day, paidDates: paidDatesByPurchase.get(p.id) ?? {}, paidBankAccounts: paidBankByPurchase.get(p.id) ?? {}, categoryId: p.category_id ?? undefined })));
       setInvestmentsState((invRes.data ?? []).map(inv => ({ id: inv.id, type: inv.type as 'CDB' | 'Bitcoin', description: inv.description ?? '', value: Number(inv.value), date: inv.occurred_on, action: inv.action as 'deposit' | 'withdraw' | 'yield', createdAt: new Date(inv.created_at).getTime(), month: inv.month.slice(0, 7), bankAccountId: inv.bank_account_id ?? undefined, categoryId: inv.category_id ?? undefined })));
@@ -252,8 +305,9 @@ export function useLedgerData() {
         supabase.from('manual_transactions').select('*').eq('month', monthDate),
         supabase.from('recurring_expense_months').select('*').eq('month', monthDate),
         supabase.from('subscription_months').select('*').eq('month', monthDate),
+        supabase.from('card_invoice_items').select('*').eq('month', monthDate).order('created_at'),
       ] as const);
-      const [incomeRes, cardBillsRes, extraIncomesRes, expensesRes, extraordinaryRes, manualRes, recurringMonthsRes, subMonthsRes] = results;
+      const [incomeRes, cardBillsRes, extraIncomesRes, expensesRes, extraordinaryRes, manualRes, recurringMonthsRes, subMonthsRes, cardInvoiceRes] = results;
 
       if (monthKeyRef.current !== requestedMonthKey) return;
       const failed = results.find(r => r.error);
@@ -269,6 +323,7 @@ export function useLedgerData() {
         income: Number(incomeRes.data?.value ?? 0), incomeDate: incomeRes.data?.income_date ?? undefined, incomeTime: incomeRes.data?.received_at ? incomeRes.data.received_at.slice(11, 16) : undefined, incomeBankAccountId: incomeRes.data?.bank_account_id ?? undefined,
         variableExpenses: (expensesRes.data ?? []).map(e => ({ id: e.id, name: e.name, value: Number(e.value), paid: e.paid, dueDay: e.due_day ?? undefined, createdAt: new Date(e.created_at).getTime() })),
         cardBills: (cardBillsRes.data ?? []).map(cb => ({ id: cb.card_id, name: '', value: Number(cb.value), paid: cb.paid, paymentDate: cb.payment_date ?? undefined, bankAccountId: cb.bank_account_id ?? undefined, categoryId: cb.category_id ?? undefined, details: cb.detalhes ?? undefined, paidAt: cb.paid_at ?? undefined })),
+        cardInvoiceItems: (cardInvoiceRes.data ?? []).map(ci => ({ id: ci.id, cardId: ci.card_id, month: ci.month.slice(0, 7), date: ci.date, description: ci.description, value: Number(ci.value), categoryId: ci.category_id ?? undefined, createdAt: new Date(ci.created_at).getTime() })),
         extraIncomes: (extraIncomesRes.data ?? []).map(ei => ({ id: ei.id, description: ei.description ?? '', value: Number(ei.value), createdAt: new Date(ei.created_at).getTime() })),
         extraordinaryExpenses: (extraordinaryRes.data ?? []).map(e => ({ id: e.id, name: e.name, value: Number(e.value), paid: e.paid, createdAt: new Date(e.created_at).getTime() })),
         investments: [],
@@ -321,9 +376,9 @@ export function useLedgerData() {
   const addCard = useCallback((name: string = '', dueDay: number = 1) => {
     if (!userId) return '';
     const id = crypto.randomUUID();
-    const item: Card = { id, name: name.trim(), dueDay: dueDay || 1, startMonth: monthKey, createdAt: Date.now() };
+    const item: Card = { id, name: name.trim(), dueDay: dueDay || 1, startMonth: monthKey, createdAt: Date.now(), isCancelled: false };
     setCardsState(prev => [...prev, item]);
-    runWrite('Erro ao criar cartão', () => db.from('cards').insert({ id, user_id: userId, name: item.name, due_day: item.dueDay, start_month: toMonthDate(monthKey) }))
+    runWrite('Erro ao criar cartão', () => db.from('cards').insert({ id, user_id: userId, name: item.name, due_day: item.dueDay, start_month: toMonthDate(monthKey), is_cancelled: false }))
       .then(ok => { if (!ok) setCardsState(prev => prev.filter(c => c.id !== id)); });
     return id;
   }, [userId, monthKey]);
@@ -348,8 +403,67 @@ export function useLedgerData() {
     if (has('value')) { billLocal.value = patch.value ?? 0; billDb.value = patch.value ?? 0; }
     if (has('paid')) {
       billLocal.paid = !!patch.paid; billDb.paid = !!patch.paid;
-      if (patch.paid) { const paidAt = patch.paidAt ?? nowLocalIso(); billLocal.paidAt = paidAt; billDb.paid_at = paidAt; }
-      else { billLocal.paidAt = undefined; billDb.paid_at = null; }
+      if (patch.paid) {
+        const paidAt = patch.paidAt ?? nowLocalIso();
+        billLocal.paidAt = paidAt;
+        billDb.paid_at = paidAt;
+
+        // Ao pagar a fatura do cartão, sincroniza todas as parcelas ativas deste cartão no mês atual
+        const bankAccId = patch.bankAccountId ?? undefined;
+        setInstallmentsState(prev => prev.map(inst => {
+          if (inst.paymentMethod !== id) return inst;
+          const [sYear, sMonth] = inst.startDate.split('-').map(Number);
+          const start = new Date(sYear, sMonth - 1, 1);
+          const current = monthStartDate(monthKey);
+          const diff = differenceInMonths(current, start);
+          if (diff < 0 || diff >= inst.totalMonths) return inst;
+
+          const paidMonths = inst.paidMonths.includes(monthKey) ? inst.paidMonths : [...inst.paidMonths, monthKey];
+          const paidDates = { ...inst.paidDates, [monthKey]: paidAt };
+          const paidBankAccounts = bankAccId ? { ...inst.paidBankAccounts, [monthKey]: bankAccId } : inst.paidBankAccounts;
+          return { ...inst, paidMonths, paidDates, paidBankAccounts };
+        }));
+
+        if (userId) {
+          const activeCardInsts = installmentsRef.current.filter(inst => {
+            if (inst.paymentMethod !== id) return false;
+            const [sYear, sMonth] = inst.startDate.split('-').map(Number);
+            const start = new Date(sYear, sMonth - 1, 1);
+            const current = monthStartDate(monthKey);
+            const diff = differenceInMonths(current, start);
+            return diff >= 0 && diff < inst.totalMonths;
+          });
+          activeCardInsts.forEach(inst => {
+            const sequence = differenceInMonths(monthStartDate(monthKey), monthStartDate(inst.startDate)) + 1;
+            queueUpsert('Erro ao marcar parcela paga pelo cartão', 'installment_items',
+              { user_id: userId, installment_purchase_id: inst.id, month: toMonthDate(monthKey) },
+              { paid: true, paid_at: paidAt, bank_account_id: bankAccId || null },
+              { sequence_number: sequence, amount: inst.monthlyValue }
+            );
+          });
+        }
+      } else {
+        billLocal.paidAt = undefined;
+        billDb.paid_at = null;
+
+        // Ao desmarcar a fatura do cartão, desmarca as parcelas deste cartão no mês atual
+        setInstallmentsState(prev => prev.map(inst => {
+          if (inst.paymentMethod !== id) return inst;
+          const paidDates = { ...inst.paidDates }; delete paidDates[monthKey];
+          const paidBankAccounts = { ...inst.paidBankAccounts }; delete paidBankAccounts[monthKey];
+          return { ...inst, paidMonths: inst.paidMonths.filter(m => m !== monthKey), paidDates, paidBankAccounts };
+        }));
+
+        if (userId) {
+          const activeCardInsts = installmentsRef.current.filter(inst => inst.paymentMethod === id);
+          activeCardInsts.forEach(inst => {
+            runWrite('Erro ao desmarcar parcela do cartão', () =>
+              db.from('installment_items').update({ paid: false, paid_at: null, bank_account_id: null })
+                .match({ installment_purchase_id: inst.id, month: toMonthDate(monthKey) })
+            );
+          });
+        }
+      }
     } else if (has('paidAt')) { billLocal.paidAt = patch.paidAt; billDb.paid_at = patch.paidAt || null; }
     if (has('paymentDate')) { billLocal.paymentDate = patch.paymentDate || undefined; billDb.payment_date = patch.paymentDate || null; }
     if (has('bankAccountId')) { billLocal.bankAccountId = patch.bankAccountId || undefined; billDb.bank_account_id = patch.bankAccountId || null; }
@@ -386,11 +500,170 @@ export function useLedgerData() {
     }
   }, [cardsState, monthKey]);
 
-  const computedCardBills = useMemo(() => cardsState.filter(c => c.startMonth <= monthKey && (!c.endMonth || c.endMonth > monthKey)).map(c => { const mData = currentMonthData.cardBills.find(cb => cb.id === c.id); return { id: c.id, name: c.name, dueDay: c.dueDay, value: mData?.value || 0, paid: mData?.paid || false, paymentDate: mData?.paymentDate, bankAccountId: mData?.bankAccountId, paidAt: mData?.paidAt, categoryId: mData?.categoryId, details: mData?.details, createdAt: c.createdAt }; }).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)), [cardsState, currentMonthData.cardBills, monthKey]);
+  // ===== Assinaturas e Parcelas Ativas (calculadas antes das faturas para evitar TDZ) =====
+  const activeSubscriptions = useMemo(() => subscriptionsState.filter(s => s.startMonth <= monthKey && (!s.endMonth || s.endMonth > monthKey)), [subscriptionsState, monthKey]);
+  const activeInstallments = useMemo(() => installmentsState.filter(inst => { const diff = differenceInMonths(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), monthStartDate(inst.startDate)); return diff >= 0 && diff < inst.totalMonths; }), [installmentsState, currentDate]);
+
+  const computedCardBills = useMemo(() => {
+    return cardsState
+      .filter(c => c.startMonth <= monthKey && (!c.endMonth || c.endMonth > monthKey || c.isCancelled))
+      .map(c => {
+        const mData = currentMonthData.cardBills.find(cb => cb.id === c.id);
+        const isPaid = mData?.paid || false;
+
+        const invoicePurchases = (currentMonthData.cardInvoiceItems || [])
+          .filter(ci => ci.cardId === c.id)
+          .reduce((acc, ci) => acc + Number(ci.value), 0);
+
+        const installmentsTotal = activeInstallments
+          .filter(inst => inst.paymentMethod === c.id)
+          .reduce((acc, inst) => acc + Number(inst.monthlyValue), 0);
+
+        const subsTotal = activeSubscriptions
+          .filter(sub => sub.paymentMethod === c.id)
+          .reduce((acc, sub) => acc + Number(currentMonthData.subscriptionValueOverrides[sub.id] ?? sub.value), 0);
+
+        const dynamicSum = invoicePurchases + installmentsTotal + subsTotal;
+
+        // Antes do pagamento (fatura em aberto), o valor é automaticamente a soma de compras + parcelas + assinaturas.
+        // Ao ocorrer o pagamento, o valor é o valor informado e fixado pelo usuário (mData.value).
+        const effectiveValue = isPaid ? (mData?.value || 0) : (dynamicSum > 0 ? dynamicSum : (mData?.value || 0));
+
+        return {
+          id: c.id,
+          name: c.name,
+          dueDay: c.dueDay,
+          value: effectiveValue,
+          paid: isPaid,
+          paymentDate: mData?.paymentDate,
+          bankAccountId: mData?.bankAccountId,
+          paidAt: mData?.paidAt,
+          categoryId: mData?.categoryId,
+          details: mData?.details,
+          createdAt: c.createdAt,
+          isCancelled: c.isCancelled,
+          dynamicSum,
+        };
+      })
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  }, [cardsState, currentMonthData.cardBills, currentMonthData.cardInvoiceItems, currentMonthData.subscriptionValueOverrides, activeInstallments, activeSubscriptions, monthKey]);
+
+  const toggleCancelCard = useCallback((id: string) => {
+    const card = cardsState.find(c => c.id === id);
+    if (!card) return;
+    const nextVal = !card.isCancelled;
+    setCardsState(prev => prev.map(c => c.id === id ? { ...c, isCancelled: nextVal } : c));
+    runWrite(nextVal ? 'Erro ao cancelar cartão' : 'Erro ao reativar cartão', () =>
+      db.from('cards').update({ is_cancelled: nextVal }).eq('id', id)
+    );
+    toast.success(nextVal ? `Cartão "${card.name}" marcado como cancelado` : `Cartão "${card.name}" reativado com sucesso`);
+  }, [cardsState]);
+
+  // ===== Compras Detalhadas da Fatura (Compra por Compra) =====
+  const addCardInvoiceItem = useCallback((cardId: string, description: string, value: number, date: string, categoryId?: string) => {
+    if (!userId) return '';
+    const id = crypto.randomUUID();
+    const itemMonth = date ? date.slice(0, 7) : monthKey;
+    const item: CardInvoiceItem = {
+      id,
+      cardId,
+      month: itemMonth,
+      date: date || toMonthDate(monthKey),
+      description: description.trim(),
+      value,
+      categoryId: categoryId || undefined,
+      createdAt: Date.now(),
+    };
+
+    if (itemMonth === monthKey) {
+      patchMonth(m => ({
+        ...m,
+        cardInvoiceItems: [...(m.cardInvoiceItems || []), item],
+      }));
+    }
+
+    runWrite('Erro ao salvar compra da fatura', () =>
+      db.from('card_invoice_items').insert({
+        id,
+        user_id: userId,
+        card_id: cardId,
+        month: toMonthDate(itemMonth),
+        date: item.date,
+        description: item.description,
+        value: item.value,
+        category_id: item.categoryId || null,
+      })
+    );
+    return id;
+  }, [userId, monthKey, patchMonth]);
+
+  const editCardInvoiceItem = useCallback((id: string, cardId: string, description: string, value: number, date: string, categoryId?: string) => {
+    const itemMonth = date ? date.slice(0, 7) : monthKey;
+    patchMonth(m => ({
+      ...m,
+      cardInvoiceItems: (m.cardInvoiceItems || []).map(item => item.id === id ? {
+        ...item,
+        cardId,
+        description: description.trim(),
+        value,
+        date,
+        month: itemMonth,
+        categoryId: categoryId || undefined,
+      } : item),
+    }));
+
+    runWrite('Erro ao atualizar compra da fatura', () =>
+      db.from('card_invoice_items').update({
+        card_id: cardId,
+        description: description.trim(),
+        value,
+        date,
+        month: toMonthDate(itemMonth),
+        category_id: categoryId || null,
+      }).eq('id', id)
+    );
+  }, [monthKey, patchMonth]);
+
+  const removeCardInvoiceItem = useCallback((id: string) => {
+    patchMonth(m => ({
+      ...m,
+      cardInvoiceItems: (m.cardInvoiceItems || []).filter(item => item.id !== id),
+    }));
+
+    runWrite('Erro ao remover compra da fatura', () =>
+      db.from('card_invoice_items').delete().eq('id', id)
+    );
+  }, [patchMonth]);
+
+  const syncCardBillValue = useCallback((cardId: string) => {
+    const invoicePurchases = (monthDataRef.current.cardInvoiceItems || [])
+      .filter(ci => ci.cardId === cardId)
+      .reduce((acc, ci) => acc + Number(ci.value), 0);
+
+    const installmentsTotal = installmentsRef.current
+      .filter(inst => {
+        if (inst.paymentMethod !== cardId) return false;
+        const [sYear, sMonth] = inst.startDate.split('-').map(Number);
+        const start = new Date(sYear, sMonth - 1, 1);
+        const current = monthStartDate(monthKey);
+        const diff = differenceInMonths(current, start);
+        return diff >= 0 && diff < inst.totalMonths;
+      })
+      .reduce((acc, inst) => acc + Number(inst.monthlyValue), 0);
+
+    const subsTotal = subscriptionsRef.current
+      .filter(sub => {
+        if (sub.paymentMethod !== cardId) return false;
+        return sub.startMonth <= monthKey && (!sub.endMonth || sub.endMonth > monthKey);
+      })
+      .reduce((acc, sub) => acc + Number(monthDataRef.current.subscriptionValueOverrides[sub.id] ?? sub.value), 0);
+
+    const total = invoicePurchases + installmentsTotal + subsTotal;
+    updateCard(cardId, { value: total });
+    return total;
+  }, [monthKey, updateCard]);
 
   // ===== Assinaturas =====
-  const activeSubscriptions = useMemo(() => subscriptionsState.filter(s => s.startMonth <= monthKey && (!s.endMonth || s.endMonth > monthKey)), [subscriptionsState, monthKey]);
-
   const addSubscription = useCallback((name: string, value: number, dueDay: number, paymentMethod: string, categoryId?: string) => {
     if (!userId) return;
     const id = crypto.randomUUID();
@@ -554,7 +827,6 @@ export function useLedgerData() {
   }, [patchMonth]);
 
   // ===== Parcelas =====
-  const activeInstallments = useMemo(() => installmentsState.filter(inst => { const diff = differenceInMonths(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), monthStartDate(inst.startDate)); return diff >= 0 && diff < inst.totalMonths; }), [installmentsState, currentDate]);
   const getInstallmentNumber = useCallback((inst: Installment) => differenceInMonths(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), monthStartDate(inst.startDate)) + 1, [currentDate]);
 
   const addInstallment = useCallback((name: string, monthlyValue: number, totalMonths: number, paymentMethod: string, categoryId?: string) => {
@@ -899,5 +1171,25 @@ export function useLedgerData() {
   const balance = totalIncome - totalExpenses;
   const allInvestments = useMemo(() => investmentsState.map(({ month, ...inv }) => inv), [investmentsState]);
 
-  return { currentDate, monthKey, data, setCurrentDate, goNextMonth: () => setCurrentDate(d => addMonths(d, 1)), goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)), currentMonthData, setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense, activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense, payRecurringExpense, unpayRecurringExpense, updateRecurringValue, toggleRecurringActive, activeSubscriptions, addSubscription, softDeleteSubscription, paySubscription, unpaySubscription, updateSubscriptionValue, addInvestment, editInvestment, removeInvestment, addManualEntry, removeManualEntry, addManualExit, removeManualExit, activeInstallments, getInstallmentNumber, addInstallment, payInstallment, unpayInstallment, removeInstallment, addGoal, editGoal, toggleGoalPurchased, markGoalPurchased, removeGoal, computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments, removeLedgerEntry, editLedgerEntry, computedCardBills, editSubscription, editInstallment, editRecurringExpense, editCard, bankAccounts: bankAccountsState, addBankAccount, categories: categoriesState, addCategory };
+  return {
+    currentDate, monthKey, data, setCurrentDate,
+    goNextMonth: () => setCurrentDate(d => addMonths(d, 1)),
+    goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)),
+    currentMonthData,
+    cardInvoiceItems: currentMonthData.cardInvoiceItems || [],
+    addCardInvoiceItem, editCardInvoiceItem, removeCardInvoiceItem, syncCardBillValue,
+    setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, toggleCancelCard,
+    addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense,
+    activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense, payRecurringExpense, unpayRecurringExpense, updateRecurringValue, toggleRecurringActive,
+    activeSubscriptions, addSubscription, softDeleteSubscription, paySubscription, unpaySubscription, updateSubscriptionValue,
+    addInvestment, editInvestment, removeInvestment,
+    addManualEntry, removeManualEntry, addManualExit, removeManualExit,
+    activeInstallments, getInstallmentNumber, addInstallment, payInstallment, unpayInstallment, removeInstallment,
+    addGoal, editGoal, toggleGoalPurchased, markGoalPurchased, removeGoal,
+    computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments,
+    removeLedgerEntry, editLedgerEntry, computedCardBills,
+    editSubscription, editInstallment, editRecurringExpense, editCard,
+    bankAccounts: bankAccountsState, addBankAccount,
+    categories: categoriesState, addCategory,
+  };
 }

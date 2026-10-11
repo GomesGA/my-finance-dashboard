@@ -11,9 +11,10 @@ import type { useLedgerData } from '@/hooks/useLedgerData';
 
 interface Props {
   ledger: ReturnType<typeof useLedgerData>;
+  onOpenCardsTab?: () => void;
 }
 
-export function DashboardTab({ ledger }: Props) {
+export function DashboardTab({ ledger, onOpenCardsTab }: Props) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr_1fr] gap-6">
       {/* Coluna 1: Esquerda (Resumo, Salário, Investimentos e Parcelas) */}
@@ -111,8 +112,10 @@ export function DashboardTab({ ledger }: Props) {
           onUpdate={ledger.updateCard}
           onEdit={ledger.editCard}
           onRemove={ledger.removeCard}
+          onToggleCancel={ledger.toggleCancelCard}
           onAddBankAccount={ledger.addBankAccount}
           onAddCategory={ledger.addCategory}
+          onOpenCardsTab={onOpenCardsTab}
         />
 
         <SubscriptionsSection
