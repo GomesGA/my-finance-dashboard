@@ -206,7 +206,7 @@ export function useLedgerData() {
       });
 
       setInstallmentsState((purchasesRes.data ?? []).map(p => ({ id: p.id, name: p.name, monthlyValue: Number(p.monthly_value), totalMonths: p.total_months, startDate: p.start_month.slice(0, 7), paidMonths: paidMonthsByPurchase.get(p.id) ?? [], createdAt: new Date(p.created_at).getTime(), paymentMethod: paymentMethodFromDb(p.payment_method, p.card_id), dueDay: p.due_day, paidDates: paidDatesByPurchase.get(p.id) ?? {}, paidBankAccounts: paidBankByPurchase.get(p.id) ?? {}, categoryId: p.category_id ?? undefined })));
-      setInvestmentsState((invRes.data ?? []).map(inv => ({ id: inv.id, type: inv.type as 'CDB' | 'Bitcoin', description: inv.description ?? '', value: Number(inv.value), date: inv.occurred_on, action: inv.action as 'deposit' | 'withdraw' | 'yield', createdAt: new Date(inv.created_at).getTime(), month: inv.month.slice(0, 7) })));
+      setInvestmentsState((invRes.data ?? []).map(inv => ({ id: inv.id, type: inv.type as 'CDB' | 'Bitcoin', description: inv.description ?? '', value: Number(inv.value), date: inv.occurred_on, action: inv.action as 'deposit' | 'withdraw' | 'yield', createdAt: new Date(inv.created_at).getTime(), month: inv.month.slice(0, 7), bankAccountId: inv.bank_account_id ?? undefined, categoryId: inv.category_id ?? undefined })));
       setBankAccountsState((banksRes.data ?? []).map(b => ({ id: b.id, name: b.name, kind: b.kind as 'PF' | 'PJ', createdAt: new Date(b.created_at).getTime() })));
 
       let categoriesData = categoriesRes.data ?? [];
@@ -619,29 +619,95 @@ export function useLedgerData() {
   }, [userId]);
 
   // ===== Investimentos e Metas =====
-  const addInvestment = useCallback((type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw' | 'yield', date?: string) => {
+  const addInvestment = useCallback((type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw' | 'yield', date?: string, bankAccountId?: string, categoryId?: string) => {
     if (!userId) return;
     const id = crypto.randomUUID();
     const occurredOn = date || toMonthDate(monthKey);
     const itemMonth = occurredOn.slice(0, 7);
-    const item: InvestmentRow = { id, type, description, value, date: occurredOn, action, createdAt: Date.now(), month: itemMonth };
+    const item: InvestmentRow = {
+      id,
+      type,
+      description,
+      value,
+      date: occurredOn,
+      action,
+      createdAt: Date.now(),
+      month: itemMonth,
+      bankAccountId: bankAccountId || undefined,
+      categoryId: categoryId || undefined,
+    };
     setInvestmentsState(prev => [...prev, item]);
-    runWrite('Erro ao salvar investimento', () => db.from('investments').insert({ id, user_id: userId, month: toMonthDate(itemMonth), type, description, value, occurred_on: occurredOn, action }))
-      .then(ok => { if (!ok) setInvestmentsState(prev => prev.filter(i => i.id !== id)); });
+    runWrite('Erro ao salvar investimento', () => db.from('investments').insert({
+      id,
+      user_id: userId,
+      month: toMonthDate(itemMonth),
+      type,
+      description,
+      value,
+      occurred_on: occurredOn,
+      action,
+      bank_account_id: bankAccountId || null,
+      category_id: categoryId || null,
+    })).then(ok => { if (!ok) setInvestmentsState(prev => prev.filter(i => i.id !== id)); });
   }, [userId, monthKey]);
+
+  const editInvestment = useCallback((id: string, patch: Partial<Investment>) => {
+    setInvestmentsState(prev => prev.map(inv => inv.id === id ? { ...inv, ...patch } : inv));
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.description !== undefined) dbPatch.description = patch.description;
+    if (patch.value !== undefined) dbPatch.value = patch.value;
+    if (patch.date !== undefined) dbPatch.occurred_on = patch.date;
+    if (patch.bankAccountId !== undefined) dbPatch.bank_account_id = patch.bankAccountId || null;
+    if (patch.categoryId !== undefined) dbPatch.category_id = patch.categoryId || null;
+    if (patch.type !== undefined) dbPatch.type = patch.type;
+    if (patch.action !== undefined) dbPatch.action = patch.action;
+    if (Object.keys(dbPatch).length) {
+      runWrite('Erro ao editar investimento', () => db.from('investments').update(dbPatch).eq('id', id));
+    }
+  }, []);
 
   const removeInvestment = useCallback((id: string) => {
     setInvestmentsState(prev => prev.filter(i => i.id !== id));
     runWrite('Erro ao apagar investimento', () => db.from('investments').delete().eq('id', id));
   }, []);
 
-  const addGoal = useCallback((name: string, targetValue: number) => {
+  const addGoal = useCallback((name: string, targetValue: number, initialPaidValue?: number, paymentDate?: string) => {
     if (!userId) return;
-    const id = crypto.randomUUID(); const goal: Goal = { id, name, targetValue, purchased: false, createdAt: Date.now() };
+    const id = crypto.randomUUID();
+    const purchased = initialPaidValue !== undefined && initialPaidValue >= targetValue && targetValue > 0;
+    const goal: Goal = {
+      id,
+      name,
+      targetValue,
+      purchased,
+      actualPaidValue: initialPaidValue,
+      paymentDate: paymentDate || (purchased ? new Date().toISOString().split('T')[0] : undefined),
+      createdAt: Date.now(),
+    };
     setGoalsState(prev => [...prev, goal]);
-    runWrite('Erro ao criar meta', () => db.from('goals').insert({ id, user_id: userId, name, target_value: targetValue, purchased: false }))
-      .then(ok => { if (!ok) setGoalsState(prev => prev.filter(g => g.id !== id)); });
+    runWrite('Erro ao criar meta', () => db.from('goals').insert({
+      id,
+      user_id: userId,
+      name,
+      target_value: targetValue,
+      purchased,
+      actual_paid_value: initialPaidValue ?? null,
+      payment_date: goal.paymentDate || null,
+    })).then(ok => { if (!ok) setGoalsState(prev => prev.filter(g => g.id !== id)); });
   }, [userId]);
+
+  const editGoal = useCallback((id: string, patch: Partial<Goal>) => {
+    setGoalsState(prev => prev.map(g => g.id === id ? { ...g, ...patch } : g));
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.name !== undefined) dbPatch.name = patch.name;
+    if (patch.targetValue !== undefined) dbPatch.target_value = patch.targetValue;
+    if (patch.actualPaidValue !== undefined) dbPatch.actual_paid_value = patch.actualPaidValue != null ? patch.actualPaidValue : null;
+    if (patch.paymentDate !== undefined) dbPatch.payment_date = patch.paymentDate ?? null;
+    if (patch.purchased !== undefined) dbPatch.purchased = patch.purchased;
+    if (Object.keys(dbPatch).length) {
+      runWrite('Erro ao editar meta', () => db.from('goals').update(dbPatch).eq('id', id));
+    }
+  }, []);
 
   const markGoalPurchased = useCallback((id: string, actualValue: number, paymentDate: string) => {
     setGoalsState(prev => prev.map(g => g.id === id ? { ...g, purchased: true, actualPaidValue: actualValue, paymentDate } : g));
@@ -776,7 +842,7 @@ export function useLedgerData() {
     const entries: LedgerEntry[] = [];
     if (currentMonthData.income > 0) entries.push({ id: 'salary', date: currentMonthData.incomeDate || `${monthKey}-01`, time: currentMonthData.incomeTime, description: 'Salário', value: currentMonthData.income, source: 'salary', createdAt: 0, bankAccountId: currentMonthData.incomeBankAccountId });
     (currentMonthData.extraIncomes || []).forEach(ei => { if (ei.value > 0) entries.push({ id: `ei-${ei.id}`, date: `${monthKey}-01`, description: ei.description || 'Renda Extra', value: Number(ei.value), source: 'extra-income', createdAt: ei.createdAt }); });
-    (currentMonthData.investments || []).filter(i => i.action === 'withdraw').forEach(inv => entries.push({ id: `inv-${inv.id}`, date: inv.date, description: `Resgate ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-withdraw', createdAt: inv.createdAt }));
+    (currentMonthData.investments || []).filter(i => i.action === 'withdraw').forEach(inv => entries.push({ id: `inv-${inv.id}`, date: inv.date, description: `Resgate ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-withdraw', createdAt: inv.createdAt, bankAccountId: inv.bankAccountId, categoryId: inv.categoryId }));
     (currentMonthData.manualEntries || []).forEach(me => entries.push({ id: `me-${me.id}`, date: me.date, time: me.occurredAt ? me.occurredAt.slice(11, 16) : undefined, description: me.description, value: Number(me.value), source: 'manual-entry', createdAt: me.createdAt, categoryId: me.categoryId, bankAccountId: me.bankAccountId, observation: me.observation, paidByOthers: me.paidByOthers }));
     return entries.sort(sortEntriesDesc);
   }, [currentMonthData, monthKey]);
@@ -822,7 +888,7 @@ export function useLedgerData() {
 
     computedCardBills.filter(c => c.paid).forEach(c => exits.push({ id: `card-${c.id}`, date: c.paymentDate || `${monthKey}-${String(c.dueDay || 1).padStart(2, '0')}`, time: c.paidAt ? splitDateTime(c.paidAt).time : undefined, description: c.name || 'Cartão', value: Number(c.value), source: 'card', createdAt: c.createdAt, categoryId: c.categoryId, bankAccountId: c.bankAccountId }));
     (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).forEach(e => exits.push({ id: `ext-${e.id}`, date: `${monthKey}-01`, description: e.name || 'Despesa Extra', value: Number(e.value), source: 'extraordinary', createdAt: e.createdAt }));
-    (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit', createdAt: inv.createdAt }));
+    (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit', createdAt: inv.createdAt, bankAccountId: inv.bankAccountId, categoryId: inv.categoryId }));
     (currentMonthData.manualExits || []).forEach(me => exits.push({ id: `mx-${me.id}`, date: me.date, time: me.occurredAt ? me.occurredAt.slice(11, 16) : undefined, description: me.description, value: Number(me.value), source: 'manual-exit', createdAt: me.createdAt, categoryId: me.categoryId, bankAccountId: me.bankAccountId, observation: me.observation, paidByOthers: me.paidByOthers }));
 
     return exits.sort(sortEntriesDesc);
@@ -833,5 +899,5 @@ export function useLedgerData() {
   const balance = totalIncome - totalExpenses;
   const allInvestments = useMemo(() => investmentsState.map(({ month, ...inv }) => inv), [investmentsState]);
 
-  return { currentDate, monthKey, data, setCurrentDate, goNextMonth: () => setCurrentDate(d => addMonths(d, 1)), goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)), currentMonthData, setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense, activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense, payRecurringExpense, unpayRecurringExpense, updateRecurringValue, toggleRecurringActive, activeSubscriptions, addSubscription, softDeleteSubscription, paySubscription, unpaySubscription, updateSubscriptionValue, addInvestment, removeInvestment, addManualEntry, removeManualEntry, addManualExit, removeManualExit, activeInstallments, getInstallmentNumber, addInstallment, payInstallment, unpayInstallment, removeInstallment, addGoal, toggleGoalPurchased, markGoalPurchased, removeGoal, computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments, removeLedgerEntry, editLedgerEntry, computedCardBills, editSubscription, editInstallment, editRecurringExpense, editCard, bankAccounts: bankAccountsState, addBankAccount, categories: categoriesState, addCategory };
+  return { currentDate, monthKey, data, setCurrentDate, goNextMonth: () => setCurrentDate(d => addMonths(d, 1)), goPrevMonth: () => setCurrentDate(d => subMonths(d, 1)), currentMonthData, setIncome, addExpense, updateExpense, removeExpense, addCard, updateCard, removeCard, addExtraordinaryExpense, updateExtraordinaryExpense, removeExtraordinaryExpense, activeRecurringExpenses, addRecurringExpense, softDeleteRecurringExpense, payRecurringExpense, unpayRecurringExpense, updateRecurringValue, toggleRecurringActive, activeSubscriptions, addSubscription, softDeleteSubscription, paySubscription, unpaySubscription, updateSubscriptionValue, addInvestment, editInvestment, removeInvestment, addManualEntry, removeManualEntry, addManualExit, removeManualExit, activeInstallments, getInstallmentNumber, addInstallment, payInstallment, unpayInstallment, removeInstallment, addGoal, editGoal, toggleGoalPurchased, markGoalPurchased, removeGoal, computedEntries, computedExits, totalExpenses, totalIncome, balance, allInvestments, removeLedgerEntry, editLedgerEntry, computedCardBills, editSubscription, editInstallment, editRecurringExpense, editCard, bankAccounts: bankAccountsState, addBankAccount, categories: categoriesState, addCategory };
 }

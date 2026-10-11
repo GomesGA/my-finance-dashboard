@@ -35,7 +35,11 @@ export function DashboardTab({ ledger }: Props) {
           onChange={ledger.setIncome}
         />
 
-        <InvestmentWidget onAdd={ledger.addInvestment} />
+        <InvestmentWidget
+          onAdd={ledger.addInvestment}
+          bankAccounts={ledger.bankAccounts}
+          categories={ledger.categories}
+        />
 
         <InstallmentsSection
           installments={ledger.activeInstallments}

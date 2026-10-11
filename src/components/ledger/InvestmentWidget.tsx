@@ -1,27 +1,40 @@
 import { useState } from 'react';
-import { TrendingUp, ArrowUpRight, ArrowDownLeft, X } from 'lucide-react';
+import { TrendingUp, ArrowUpRight, ArrowDownLeft, X, Building2, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CurrencyInput } from '@/components/CurrencyInput';
+import type { BankAccount, Category } from '@/types/ledger';
 
 interface Props {
-  onAdd: (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw', date: string) => void;
+  onAdd: (type: 'CDB' | 'Bitcoin', description: string, value: number, action: 'deposit' | 'withdraw', date: string, bankAccountId?: string, categoryId?: string) => void;
+  bankAccounts?: BankAccount[];
+  categories?: Category[];
 }
 
-export function InvestmentWidget({ onAdd }: Props) {
+export function InvestmentWidget({ onAdd, bankAccounts = [], categories = [] }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     type: 'CDB' as 'CDB' | 'Bitcoin',
     description: '',
     value: 0,
     action: 'deposit' as 'deposit' | 'withdraw',
-    date: new Date().toISOString().split('T')[0], // Puxa a data de hoje automaticamente
+    date: new Date().toISOString().split('T')[0],
+    bankAccountId: '',
+    categoryId: '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.value || form.value <= 0 || !form.date) return;
-    onAdd(form.type, form.description, form.value, form.action, form.date);
-    setForm({ type: 'CDB', description: '', value: 0, action: 'deposit', date: new Date().toISOString().split('T')[0] });
+    onAdd(form.type, form.description, form.value, form.action, form.date, form.bankAccountId || undefined, form.categoryId || undefined);
+    setForm({
+      type: 'CDB',
+      description: '',
+      value: 0,
+      action: 'deposit',
+      date: new Date().toISOString().split('T')[0],
+      bankAccountId: '',
+      categoryId: '',
+    });
     setShowForm(false);
   };
 
@@ -113,6 +126,38 @@ export function InvestmentWidget({ onAdd }: Props) {
                 value={form.value}
                 onChange={val => setForm(f => ({ ...f, value: val }))}
               />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <div className="relative">
+                <select
+                  value={form.bankAccountId}
+                  onChange={e => setForm(f => ({ ...f, bankAccountId: e.target.value }))}
+                  className="ledger-input w-full text-xs bg-background"
+                >
+                  <option value="">Banco (opcional)</option>
+                  {bankAccounts.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.kind})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative">
+                <select
+                  value={form.categoryId}
+                  onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
+                  className="ledger-input w-full text-xs bg-background"
+                >
+                  <option value="">Categoria (opcional)</option>
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             
             <button type="submit" className="ledger-btn-primary w-full text-center">

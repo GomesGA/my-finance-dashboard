@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -44,6 +69,7 @@ export type Database = {
           card_id: string
           category_id: string | null
           created_at: string
+          detalhes: string | null
           id: string
           month: string
           paid: boolean
@@ -51,13 +77,13 @@ export type Database = {
           payment_date: string | null
           user_id: string
           value: number
-          detalhes?: string | null
         }
         Insert: {
           bank_account_id?: string | null
           card_id: string
           category_id?: string | null
           created_at?: string
+          detalhes?: string | null
           id?: string
           month: string
           paid?: boolean
@@ -65,13 +91,13 @@ export type Database = {
           payment_date?: string | null
           user_id: string
           value?: number
-          detalhes?: string | null
         }
         Update: {
           bank_account_id?: string | null
           card_id?: string
           category_id?: string | null
           created_at?: string
+          detalhes?: string | null
           id?: string
           month?: string
           paid?: boolean
@@ -79,7 +105,6 @@ export type Database = {
           payment_date?: string | null
           user_id?: string
           value?: number
-          detalhes?: string | null
         }
         Relationships: [
           {
@@ -327,34 +352,34 @@ export type Database = {
       }
       goals: {
         Row: {
+          actual_paid_value: number | null
           created_at: string
           id: string
           name: string
+          payment_date: string | null
           purchased: boolean
           target_value: number
           user_id: string
-          actual_paid_value: number | null
-          payment_date: string | null
         }
         Insert: {
+          actual_paid_value?: number | null
           created_at?: string
           id?: string
           name: string
+          payment_date?: string | null
           purchased?: boolean
           target_value: number
           user_id: string
-          actual_paid_value?: number | null
-          payment_date?: string | null
         }
         Update: {
+          actual_paid_value?: number | null
           created_at?: string
           id?: string
           name?: string
+          payment_date?: string | null
           purchased?: boolean
           target_value?: number
           user_id?: string
-          actual_paid_value?: number | null
-          payment_date?: string | null
         }
         Relationships: []
       }
@@ -513,6 +538,8 @@ export type Database = {
       investments: {
         Row: {
           action: string
+          bank_account_id: string | null
+          category_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -524,6 +551,8 @@ export type Database = {
         }
         Insert: {
           action: string
+          bank_account_id?: string | null
+          category_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -535,6 +564,8 @@ export type Database = {
         }
         Update: {
           action?: string
+          bank_account_id?: string | null
+          category_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -544,7 +575,22 @@ export type Database = {
           user_id?: string
           value?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "investments_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investments_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ledger_cloud: {
         Row: {
@@ -571,12 +617,12 @@ export type Database = {
           direction: string
           id: string
           month: string
+          observacao: string | null
           occurred_at: string | null
+          pago_por_terceiros: boolean | null
           payment_method: string
           user_id: string
           value: number
-          observacao: string | null
-          pago_por_terceiros: boolean | null
         }
         Insert: {
           bank_account_id?: string | null
@@ -587,12 +633,12 @@ export type Database = {
           direction: string
           id?: string
           month: string
+          observacao?: string | null
           occurred_at?: string | null
+          pago_por_terceiros?: boolean | null
           payment_method?: string
           user_id: string
           value: number
-          observacao?: string | null
-          pago_por_terceiros?: boolean | null
         }
         Update: {
           bank_account_id?: string | null
@@ -603,12 +649,12 @@ export type Database = {
           direction?: string
           id?: string
           month?: string
+          observacao?: string | null
           occurred_at?: string | null
+          pago_por_terceiros?: boolean | null
           payment_method?: string
           user_id?: string
           value?: number
-          observacao?: string | null
-          pago_por_terceiros?: boolean | null
         }
         Relationships: [
           {
@@ -933,12 +979,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -962,11 +1008,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -987,11 +1033,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1012,11 +1058,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1029,11 +1075,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1043,6 +1089,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
