@@ -109,7 +109,7 @@ export function RecurringExpensesSection({ recurring, monthData, bankAccounts, c
                     <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">R$</span>
                     <CurrencyInput className="ledger-input w-full font-mono text-xs pl-5 py-1" value={currentValue} onChange={val => onUpdateValue(re.id, val)} />
                   </div>
-                  <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                  <div className="flex opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity gap-1">
                     <button type="button" onClick={() => onToggleActive(re.id)} className="p-1.5 text-muted-foreground hover:text-primary" title="Pausar este mês"><Pause size={14} /></button>
                     <button type="button" onClick={() => startEdit(re)} className="p-1.5 text-muted-foreground hover:text-primary"><Edit2 size={14} /></button>
                     <button type="button" onClick={() => onSoftDelete(re.id)} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>

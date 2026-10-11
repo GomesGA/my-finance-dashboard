@@ -235,7 +235,7 @@ export function LedgerTable({ title, entries, type, bankAccounts = [], onAddBank
                     </td>
 
                     <td className="px-2 py-3 align-top pt-3">
-                      <div className="flex gap-1 justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-1 justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button onClick={() => startEdit(entry)} className="p-1 text-muted-foreground hover:text-primary transition-colors" title="Editar"><Edit2 size={14} /></button>
                         <button onClick={() => onRemoveEntry?.(entry.id, entry.source)} className="p-1 text-muted-foreground hover:text-destructive transition-colors" title="Apagar"><Trash2 size={14} /></button>
                       </div>

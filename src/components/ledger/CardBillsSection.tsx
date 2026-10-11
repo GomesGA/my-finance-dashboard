@@ -201,7 +201,7 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
                   </div>
                   <div className="flex items-center gap-3 shrink-0 pl-2">
                     <span className="font-mono text-sm font-semibold text-foreground">{formatCurrency(card.value || 0)}</span>
-                    <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                    <div className="flex opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity gap-1">
                       <button type="button" onClick={() => startEdit(card)} className="p-1.5 text-muted-foreground hover:text-primary"><Edit2 size={14} /></button>
                       <button type="button" onClick={() => onRemove(card.id)} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
                     </div>

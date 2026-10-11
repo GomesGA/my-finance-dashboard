@@ -161,7 +161,7 @@ export function GoalsTab({ ledger }: Props) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-card border border-border shadow-xl rounded-xl p-6 w-full max-w-sm space-y-4"
+              className="bg-card border border-border shadow-xl rounded-xl p-5 sm:p-6 w-full max-w-sm space-y-4 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
@@ -232,7 +232,7 @@ export function GoalsTab({ ledger }: Props) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-card border border-border shadow-xl rounded-xl p-6 w-full max-w-md space-y-4"
+              className="bg-card border border-border shadow-xl rounded-xl p-5 sm:p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">

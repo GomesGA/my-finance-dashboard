@@ -24,26 +24,28 @@ export function IncomeSection({ income, incomeDate, incomeTime, incomeBankAccoun
         Salário do Mês
       </h2>
       <div className="space-y-3">
-        <div className="flex gap-2">
-          <input
-            type="date"
-            className="ledger-input w-32 shrink-0 text-xs px-2"
-            value={date}
-            onChange={e => onChange(income, e.target.value, incomeTime, incomeBankAccountId)}
-            title="Data de Recebimento"
-          />
-          <input
-            type="time"
-            className="ledger-input w-24 shrink-0 text-xs px-2"
-            value={incomeTime || ''}
-            onChange={e => onChange(income, date, e.target.value, incomeBankAccountId)}
-            title="Horário de Recebimento"
-          />
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex gap-2 shrink-0">
+            <input
+              type="date"
+              className="ledger-input flex-1 sm:w-32 text-xs px-2"
+              value={date}
+              onChange={e => onChange(income, e.target.value, incomeTime, incomeBankAccountId)}
+              title="Data de Recebimento"
+            />
+            <input
+              type="time"
+              className="ledger-input w-20 sm:w-24 shrink-0 text-xs px-2"
+              value={incomeTime || ''}
+              onChange={e => onChange(income, date, e.target.value, incomeBankAccountId)}
+              title="Horário de Recebimento"
+            />
+          </div>
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R$</span>
             <CurrencyInput
               placeholder="0,00"
-              className="ledger-input w-full font-mono pl-8 text-lg"
+              className="ledger-input w-full font-mono pl-8 text-base sm:text-lg"
               value={income}
               onChange={val => onChange(val, date, incomeTime, incomeBankAccountId)}
             />

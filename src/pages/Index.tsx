@@ -34,12 +34,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
-      <div className="flex justify-end p-4 absolute top-0 right-0 z-50">
-        <Button variant="ghost" size="sm" onClick={() => supabase.auth.signOut()} className="text-muted-foreground hover:text-foreground">
-          <LogOut className="w-4 h-4 mr-2" /> Sair
-        </Button>
-      </div>
-
       <MonthSelector
         currentDate={ledger.currentDate}
         onPrev={ledger.goPrevMonth}
@@ -48,9 +42,10 @@ const Index = () => {
         onToggleTheme={theme.toggle}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        onSignOut={() => supabase.auth.signOut()}
       />
 
-      <main className="w-full max-w-[1900px] mx-auto px-4 lg:px-8 pt-8">
+      <main className="w-full max-w-[1900px] mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6">
         {activeTab === 'dashboard' && <DashboardTab ledger={ledger} />}
         {activeTab === 'dash' && <BankDashboardTab ledger={ledger} />}
         {activeTab === 'goals' && <GoalsTab ledger={ledger} />}

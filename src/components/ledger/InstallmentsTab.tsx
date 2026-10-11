@@ -431,7 +431,7 @@ export function InstallmentsPurchasesTab({ ledger, onGoToDashboard }: Props) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 opacity-80 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => startEdit(inst)}
                       className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
@@ -496,7 +496,7 @@ export function InstallmentsPurchasesTab({ ledger, onGoToDashboard }: Props) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-card border border-border shadow-xl rounded-xl p-6 w-full max-w-md space-y-4"
+              className="bg-card border border-border shadow-xl rounded-xl p-5 sm:p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
@@ -621,7 +621,7 @@ export function InstallmentsPurchasesTab({ ledger, onGoToDashboard }: Props) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-card border border-border shadow-xl rounded-xl p-6 w-full max-w-md space-y-4"
+              className="bg-card border border-border shadow-xl rounded-xl p-5 sm:p-6 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto"
             >
               <div className="flex justify-between items-center">
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
