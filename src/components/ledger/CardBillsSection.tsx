@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CreditCard, Plus, Trash2, X, Edit2, Check, AlignLeft, Ban, RotateCcw } from 'lucide-react';
+import { CreditCard, Plus, Trash2, X, Edit2, Check, Ban, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { CardBill, BankAccount, Category } from '@/types/ledger';
 import { CurrencyInput } from '@/components/CurrencyInput';
@@ -23,11 +23,10 @@ interface Props {
 
 export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpdate, onEdit, onRemove, onToggleCancel, onAddBankAccount, onAddCategory, onOpenCardsTab }: Props) {
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState({ name: '', dueDay: '10', value: 0, categoryId: '', details: '' });
+  const [addForm, setAddForm] = useState({ name: '', dueDay: '10', value: 0, categoryId: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', value: 0, dueDay: '', categoryId: '', details: '' });
+  const [editForm, setEditForm] = useState({ name: '', value: 0, dueDay: '', categoryId: '' });
   const [payingId, setPayingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const handleCreateCard = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,15 +36,14 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
     const dueDay = Number(addForm.dueDay) || 1;
     const newCardId = onAdd(cardName, dueDay);
 
-    if (newCardId && (addForm.value > 0 || addForm.categoryId || addForm.details)) {
+    if (newCardId && (addForm.value > 0 || addForm.categoryId)) {
       onUpdate(newCardId, {
         value: addForm.value || 0,
         categoryId: addForm.categoryId || undefined,
-        details: addForm.details || undefined,
       });
     }
 
-    setAddForm({ name: '', dueDay: '10', value: 0, categoryId: '', details: '' });
+    setAddForm({ name: '', dueDay: '10', value: 0, categoryId: '' });
     setShowAddForm(false);
   };
 
@@ -56,12 +54,11 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
       value: card.value, 
       dueDay: String(card.dueDay || 1), 
       categoryId: card.categoryId || '',
-      details: card.details || '' 
     }); 
   };
   
   const saveEdit = (id: string) => { 
-    onEdit(id, editForm.name, editForm.value, Number(editForm.dueDay) || 1, editForm.categoryId || undefined, editForm.details); 
+    onEdit(id, editForm.name, editForm.value, Number(editForm.dueDay) || 1, editForm.categoryId || undefined); 
     setEditingId(null); 
   };
 
@@ -147,13 +144,6 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
               label="Categoria (opcional)"
             />
 
-            <textarea
-              placeholder="Rascunho de gastos (opcional, ex: Uber 25, Ifood 60)..."
-              className="ledger-input w-full text-xs min-h-[50px] resize-y font-mono"
-              value={addForm.details}
-              onChange={e => setAddForm(f => ({ ...f, details: e.target.value }))}
-            />
-
             <button type="submit" className="ledger-btn-primary w-full text-center">
               Confirmar Cartão
             </button>
@@ -177,14 +167,6 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
                   </div>
                   
                   <CategoryField value={editForm.categoryId} onChange={categoryId => setEditForm(f => ({ ...f, categoryId }))} categories={categories} onAddCategory={onAddCategory} label="" />
-                  
-                  {/* Campo de rascunho para anotações livres da fatura */}
-                  <textarea 
-                    placeholder="Rascunho de gastos (ex: Uber 20, Ifood 50)..." 
-                    className="ledger-input w-full text-xs min-h-[60px] resize-y font-mono" 
-                    value={editForm.details} 
-                    onChange={e => setEditForm(f => ({ ...f, details: e.target.value }))} 
-                  />
 
                   <div className="flex gap-2 mt-2">
                     <button onClick={() => saveEdit(card.id)} className="flex-1 ledger-btn-primary py-1.5 text-xs flex justify-center items-center gap-1"><Check size={14} /> Salvar</button>
@@ -218,11 +200,6 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
                             Ver compras da fatura →
                           </button>
                         )}
-                        {card.details && (
-                          <button onClick={() => setExpandedId(expandedId === card.id ? null : card.id)} className="text-[10px] text-muted-foreground flex items-center gap-1 hover:underline">
-                            <AlignLeft size={10} /> {expandedId === card.id ? 'Ocultar rascunho' : 'Ver rascunho'}
-                          </button>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -244,13 +221,6 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
                     </div>
                   </div>
                 </div>
-                
-                {/* Área expandida do rascunho */}
-                {expandedId === card.id && card.details && (
-                  <div className="mt-3 p-2 bg-background border border-border rounded text-[11px] text-muted-foreground whitespace-pre-wrap font-mono ml-7">
-                    {card.details}
-                  </div>
-                )}
               </motion.div>
             );
           })}

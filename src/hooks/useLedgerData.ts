@@ -1051,37 +1051,144 @@ export function useLedgerData() {
     else if (source === 'extraordinary') removeExtraordinaryExpense(id);
   }, [removeManualEntry, removeManualExit, updateCard, unpayRecurringExpense, unpaySubscription, unpayInstallment, setIncome, removeInvestment, removeExtraIncome, removeExtraordinaryExpense]);
 
-  const editLedgerEntry = useCallback((idStr: string, source: string, date: string, description: string, value: number) => {
+  const editLedgerEntry = useCallback((
+    idStr: string,
+    source: string,
+    date: string,
+    description: string,
+    value: number,
+    extra?: {
+      time?: string;
+      bankAccountId?: string;
+      categoryId?: string;
+      paymentMethod?: string;
+      observation?: string;
+      paidByOthers?: boolean;
+    }
+  ) => {
     const id = idStr.replace(/^[a-z]+-/, '');
 
     if (source === 'manual-entry' || source === 'manual-exit') {
       const listKey = source === 'manual-entry' ? 'manualEntries' : 'manualExits';
       const current = (monthDataRef.current[listKey] || []).find(e => e.id === id);
-      // Mantém o horário, mas move a data junto (senão a hora exibida ficava presa à data antiga).
-      const occurredAt = current?.occurredAt ? `${date}T${current.occurredAt.slice(11, 16)}:00` : undefined;
-      patchMonth(m => ({ ...m, [listKey]: (m[listKey] || []).map(e => e.id === id ? { ...e, date, description, value, occurredAt } : e) }));
-      runWrite('Erro ao editar lançamento', () => db.from('manual_transactions').update({ date, description, value, occurred_at: occurredAt ?? null }).eq('id', id));
+      const newTime = extra?.time !== undefined ? extra.time : (current?.occurredAt ? current.occurredAt.slice(11, 16) : undefined);
+      const occurredAt = newTime ? `${date}T${newTime}:00` : (date ? `${date}T00:00:00` : null);
+      const bankAccountId = extra?.bankAccountId !== undefined ? (extra.bankAccountId || undefined) : current?.bankAccountId;
+      const categoryId = extra?.categoryId !== undefined ? (extra.categoryId || undefined) : current?.categoryId;
+      const observation = extra?.observation !== undefined ? (extra.observation || undefined) : current?.observation;
+      const paidByOthers = extra?.paidByOthers !== undefined ? extra.paidByOthers : (current?.paidByOthers ?? false);
+
+      let dbMethod = current?.paymentMethod;
+      if (extra?.paymentMethod !== undefined) {
+        dbMethod = manualPaymentMethodToDb(extra.paymentMethod);
+      }
+
+      patchMonth(m => ({
+        ...m,
+        [listKey]: (m[listKey] || []).map(e => e.id === id ? {
+          ...e,
+          date,
+          description,
+          value,
+          occurredAt: occurredAt ?? undefined,
+          bankAccountId,
+          categoryId,
+          observation,
+          paidByOthers,
+          paymentMethod: dbMethod
+        } : e)
+      }));
+
+      runWrite('Erro ao editar lançamento', () => db.from('manual_transactions').update({
+        date,
+        description,
+        value,
+        occurred_at: occurredAt,
+        bank_account_id: bankAccountId || null,
+        category_id: categoryId || null,
+        observacao: observation || null,
+        pago_por_terceiros: paidByOthers,
+        payment_method: dbMethod ?? 'pix'
+      }).eq('id', id));
     }
     else if (source === 'card') {
-      updateCard(id, { name: description, value, paymentDate: date });
+      const paidAt = extra?.time ? `${date}T${extra.time}:00` : undefined;
+      updateCard(id, {
+        name: description,
+        value,
+        paymentDate: date,
+        bankAccountId: extra?.bankAccountId,
+        categoryId: extra?.categoryId,
+        paidAt
+      });
     }
     else if (source === 'recurring') {
-      updateRecurringValue(id, value); updateRecurringDate(id, date);
-      setRecurringState(prev => prev.map(re => re.id === id ? { ...re, name: description } : re));
-      runWrite('Erro ao editar despesa recorrente', () => db.from('recurring_expenses').update({ name: description }).eq('id', id));
+      updateRecurringValue(id, value);
+      updateRecurringDate(id, date);
+      const paidAtIso = extra?.time ? `${date}T${extra.time}:00` : undefined;
+      if (extra?.bankAccountId) {
+        patchMonth(m => ({
+          ...m,
+          recurringBankAccounts: { ...(m.recurringBankAccounts || {}), [id]: extra.bankAccountId! },
+          ...(paidAtIso ? { recurringPaidAt: { ...(m.recurringPaidAt || {}), [id]: paidAtIso } } : {})
+        }));
+        if (userId) queueUpsert('Erro ao salvar banco da despesa', 'recurring_expense_months', recurringMonthMatch(id), {
+          bank_account_id: extra.bankAccountId,
+          ...(paidAtIso ? { paid_at: paidAtIso } : {})
+        });
+      }
+      setRecurringState(prev => prev.map(re => re.id === id ? {
+        ...re,
+        name: description,
+        ...(extra?.categoryId !== undefined ? { categoryId: extra.categoryId } : {})
+      } : re));
+      runWrite('Erro ao editar despesa recorrente', () => db.from('recurring_expenses').update({
+        name: description,
+        ...(extra?.categoryId !== undefined ? { category_id: extra.categoryId || null } : {})
+      }).eq('id', id));
     }
     else if (source === 'subscription') {
-      updateSubscriptionValue(id, value); updateSubscriptionDate(id, date);
-      setSubscriptionsState(prev => prev.map(s => s.id === id ? { ...s, name: description } : s));
-      runWrite('Erro ao editar assinatura', () => db.from('subscriptions').update({ name: description }).eq('id', id));
+      updateSubscriptionValue(id, value);
+      updateSubscriptionDate(id, date);
+      const paidAtIso = extra?.time ? `${date}T${extra.time}:00` : undefined;
+      if (extra?.bankAccountId) {
+        patchMonth(m => ({
+          ...m,
+          subscriptionBankAccounts: { ...(m.subscriptionBankAccounts || {}), [id]: extra.bankAccountId! },
+          ...(paidAtIso ? { subscriptionPaidAt: { ...(m.subscriptionPaidAt || {}), [id]: paidAtIso } } : {})
+        }));
+        if (userId) queueUpsert('Erro ao salvar banco da assinatura', 'subscription_months', subscriptionMonthMatch(id), {
+          bank_account_id: extra.bankAccountId,
+          ...(paidAtIso ? { paid_at: paidAtIso } : {})
+        });
+      }
+      setSubscriptionsState(prev => prev.map(s => s.id === id ? {
+        ...s,
+        name: description,
+        ...(extra?.categoryId !== undefined ? { categoryId: extra.categoryId } : {})
+      } : s));
+      runWrite('Erro ao editar assinatura', () => db.from('subscriptions').update({
+        name: description,
+        ...(extra?.categoryId !== undefined ? { category_id: extra.categoryId || null } : {})
+      }).eq('id', id));
     }
     else if (source === 'installment') {
-      // Valor e nome da parcela valem para a compra inteira (editar na seção de parcelas); aqui só a data do pagamento.
       const inst = installmentsRef.current.find(i => i.id === id);
       const previous = inst?.paidDates?.[monthKey];
-      const paidAt = `${date}T${previous && previous.length > 10 ? previous.slice(11, 16) : '00:00'}:00`;
-      setInstallmentsState(prev => prev.map(i => i.id === id ? { ...i, paidDates: { ...i.paidDates, [monthKey]: paidAt } } : i));
-      runWrite('Erro ao editar parcela', () => db.from('installment_items').update({ paid_at: paidAt }).match({ installment_purchase_id: id, month: toMonthDate(monthKey) }));
+      const newTime = extra?.time !== undefined ? extra.time : (previous && previous.length > 10 ? previous.slice(11, 16) : '00:00');
+      const paidAt = `${date}T${newTime}:00`;
+      setInstallmentsState(prev => prev.map(i => i.id === id ? {
+        ...i,
+        paidDates: { ...i.paidDates, [monthKey]: paidAt },
+        ...(extra?.bankAccountId ? { paidBankAccounts: { ...i.paidBankAccounts, [monthKey]: extra.bankAccountId } } : {}),
+        ...(extra?.categoryId !== undefined ? { categoryId: extra.categoryId } : {})
+      } : i));
+      if (extra?.categoryId !== undefined) {
+        runWrite('Erro ao editar categoria da parcela', () => db.from('installment_purchases').update({ category_id: extra.categoryId || null }).eq('id', id));
+      }
+      const itemUpdate: Record<string, unknown> = { paid_at: paidAt };
+      if (extra?.bankAccountId) itemUpdate.bank_account_id = extra.bankAccountId;
+      runWrite('Erro ao editar parcela', () => db.from('installment_items').update(itemUpdate).match({ installment_purchase_id: id, month: toMonthDate(monthKey) }));
     }
     else if (source === 'extraordinary') {
       updateExtraordinaryExpense(id, { name: description, value });
@@ -1091,14 +1198,27 @@ export function useLedgerData() {
       runWrite('Erro ao editar renda extra', () => db.from('extra_incomes').update({ description, value }).eq('id', id));
     }
     else if (source === 'salary') {
-      setIncome(value, date);
+      setIncome(value, date, extra?.time, extra?.bankAccountId);
     }
     else if (source === 'investment-deposit' || source === 'investment-withdraw' || source === 'investment-yield') {
       const cleanDesc = description.replace(/^(Aporte|Resgate|Rendimento) (CDB|Bitcoin)( - )?/, '');
-      setInvestmentsState(prev => prev.map(inv => inv.id === id ? { ...inv, date, description: cleanDesc, value } : inv));
-      runWrite('Erro ao editar investimento', () => db.from('investments').update({ occurred_on: date, description: cleanDesc, value }).eq('id', id));
+      setInvestmentsState(prev => prev.map(inv => inv.id === id ? {
+        ...inv,
+        date,
+        description: cleanDesc,
+        value,
+        ...(extra?.bankAccountId !== undefined ? { bankAccountId: extra.bankAccountId || undefined } : {}),
+        ...(extra?.categoryId !== undefined ? { categoryId: extra.categoryId || undefined } : {})
+      } : inv));
+      runWrite('Erro ao editar investimento', () => db.from('investments').update({
+        occurred_on: date,
+        description: cleanDesc,
+        value,
+        ...(extra?.bankAccountId !== undefined ? { bank_account_id: extra.bankAccountId || null } : {}),
+        ...(extra?.categoryId !== undefined ? { category_id: extra.categoryId || null } : {})
+      }).eq('id', id));
     }
-  }, [monthKey, patchMonth, updateCard, updateRecurringValue, updateRecurringDate, updateSubscriptionValue, updateSubscriptionDate, updateExtraordinaryExpense, setIncome]);
+  }, [monthKey, patchMonth, updateCard, updateRecurringValue, updateRecurringDate, updateSubscriptionValue, updateSubscriptionDate, updateExtraordinaryExpense, setIncome, recurringMonthMatch, subscriptionMonthMatch, userId]);
 
   // ===== Ordenação e Computed =====
   const sortEntriesDesc = (a: LedgerEntry, b: LedgerEntry) => {
@@ -1115,7 +1235,7 @@ export function useLedgerData() {
     if (currentMonthData.income > 0) entries.push({ id: 'salary', date: currentMonthData.incomeDate || `${monthKey}-01`, time: currentMonthData.incomeTime, description: 'Salário', value: currentMonthData.income, source: 'salary', createdAt: 0, bankAccountId: currentMonthData.incomeBankAccountId });
     (currentMonthData.extraIncomes || []).forEach(ei => { if (ei.value > 0) entries.push({ id: `ei-${ei.id}`, date: `${monthKey}-01`, description: ei.description || 'Renda Extra', value: Number(ei.value), source: 'extra-income', createdAt: ei.createdAt }); });
     (currentMonthData.investments || []).filter(i => i.action === 'withdraw').forEach(inv => entries.push({ id: `inv-${inv.id}`, date: inv.date, description: `Resgate ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-withdraw', createdAt: inv.createdAt, bankAccountId: inv.bankAccountId, categoryId: inv.categoryId }));
-    (currentMonthData.manualEntries || []).forEach(me => entries.push({ id: `me-${me.id}`, date: me.date, time: me.occurredAt ? me.occurredAt.slice(11, 16) : undefined, description: me.description, value: Number(me.value), source: 'manual-entry', createdAt: me.createdAt, categoryId: me.categoryId, bankAccountId: me.bankAccountId, observation: me.observation, paidByOthers: me.paidByOthers }));
+    (currentMonthData.manualEntries || []).forEach(me => entries.push({ id: `me-${me.id}`, date: me.date, time: me.occurredAt ? me.occurredAt.slice(11, 16) : undefined, description: me.description, value: Number(me.value), source: 'manual-entry', createdAt: me.createdAt, categoryId: me.categoryId, bankAccountId: me.bankAccountId, observation: me.observation, paidByOthers: me.paidByOthers, paymentMethod: me.paymentMethod }));
     return entries.sort(sortEntriesDesc);
   }, [currentMonthData, monthKey]);
 
@@ -1143,7 +1263,8 @@ export function useLedgerData() {
           exits.push({
             id: `sub-${sub.id}`, date, time, description: sub.name,
             value: Number(currentMonthData.subscriptionValueOverrides[sub.id] ?? sub.value),
-            source: 'subscription', createdAt: sub.createdAt, categoryId: sub.categoryId, bankAccountId: currentMonthData.subscriptionBankAccounts?.[sub.id]
+            source: 'subscription', createdAt: sub.createdAt, categoryId: sub.categoryId, bankAccountId: currentMonthData.subscriptionBankAccounts?.[sub.id],
+            paymentMethod: sub.paymentMethod
           });
         }
       }
@@ -1153,15 +1274,15 @@ export function useLedgerData() {
       if (inst.paidMonths.includes(monthKey)) {
         if (!inst.paymentMethod || inst.paymentMethod === 'Pix') {
           const { date, time } = splitDateTime(inst.paidDates?.[monthKey]);
-          exits.push({ id: `inst-${inst.id}`, date: date || `${monthKey}-01`, time, description: `Parcela: ${inst.name}`, value: inst.monthlyValue, source: 'installment', createdAt: inst.createdAt, categoryId: inst.categoryId, bankAccountId: inst.paidBankAccounts?.[monthKey] });
+          exits.push({ id: `inst-${inst.id}`, date: date || `${monthKey}-01`, time, description: `Parcela: ${inst.name}`, value: inst.monthlyValue, source: 'installment', createdAt: inst.createdAt, categoryId: inst.categoryId, bankAccountId: inst.paidBankAccounts?.[monthKey], paymentMethod: inst.paymentMethod });
         }
       }
     });
 
-    computedCardBills.filter(c => c.paid).forEach(c => exits.push({ id: `card-${c.id}`, date: c.paymentDate || `${monthKey}-${String(c.dueDay || 1).padStart(2, '0')}`, time: c.paidAt ? splitDateTime(c.paidAt).time : undefined, description: c.name || 'Cartão', value: Number(c.value), source: 'card', createdAt: c.createdAt, categoryId: c.categoryId, bankAccountId: c.bankAccountId }));
+    computedCardBills.filter(c => c.paid).forEach(c => exits.push({ id: `card-${c.id}`, date: c.paymentDate || `${monthKey}-${String(c.dueDay || 1).padStart(2, '0')}`, time: c.paidAt ? splitDateTime(c.paidAt).time : undefined, description: c.name || 'Cartão', value: Number(c.value), source: 'card', createdAt: c.createdAt, categoryId: c.categoryId, bankAccountId: c.bankAccountId, paymentMethod: 'Cartão' }));
     (currentMonthData.extraordinaryExpenses || []).filter(e => e.paid).forEach(e => exits.push({ id: `ext-${e.id}`, date: `${monthKey}-01`, description: e.name || 'Despesa Extra', value: Number(e.value), source: 'extraordinary', createdAt: e.createdAt }));
     (currentMonthData.investments || []).filter(i => i.action === 'deposit').forEach(inv => exits.push({ id: `inv-${inv.id}`, date: inv.date, description: `Aporte ${inv.type}${inv.description ? ` - ${inv.description}` : ''}`, value: Number(inv.value), source: 'investment-deposit', createdAt: inv.createdAt, bankAccountId: inv.bankAccountId, categoryId: inv.categoryId }));
-    (currentMonthData.manualExits || []).forEach(me => exits.push({ id: `mx-${me.id}`, date: me.date, time: me.occurredAt ? me.occurredAt.slice(11, 16) : undefined, description: me.description, value: Number(me.value), source: 'manual-exit', createdAt: me.createdAt, categoryId: me.categoryId, bankAccountId: me.bankAccountId, observation: me.observation, paidByOthers: me.paidByOthers }));
+    (currentMonthData.manualExits || []).forEach(me => exits.push({ id: `mx-${me.id}`, date: me.date, time: me.occurredAt ? me.occurredAt.slice(11, 16) : undefined, description: me.description, value: Number(me.value), source: 'manual-exit', createdAt: me.createdAt, categoryId: me.categoryId, bankAccountId: me.bankAccountId, observation: me.observation, paidByOthers: me.paidByOthers, paymentMethod: me.paymentMethod }));
 
     return exits.sort(sortEntriesDesc);
   }, [currentMonthData, monthKey, activeRecurringExpenses, activeSubscriptions, activeInstallments, computedCardBills]);

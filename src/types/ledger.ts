@@ -26,6 +26,7 @@ export interface LedgerEntry {
   bankAccountId?: string;
   observation?: string;     // <-- Adicionado
   paidByOthers?: boolean;   // <-- Adicionado
+  paymentMethod?: string;
 }
 
 export interface ManualEntry {

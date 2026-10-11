@@ -67,6 +67,8 @@ export function DashboardTab({ ledger, onOpenCardsTab }: Props) {
           type="income"
           bankAccounts={ledger.bankAccounts}
           onAddBankAccount={ledger.addBankAccount}
+          categories={ledger.categories}
+          onAddCategory={ledger.addCategory}
           onAddManual={ledger.addManualEntry}
           onRemoveEntry={ledger.removeLedgerEntry}
           onEditEntry={ledger.editLedgerEntry}
