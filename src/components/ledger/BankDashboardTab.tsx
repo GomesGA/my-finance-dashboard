@@ -93,9 +93,8 @@ export function BankDashboardTab({ ledger }: Props) {
             {expensesByBank.length === 0 && expensesWithoutBank === 0 && <p className="text-xs text-muted-foreground italic text-center py-4">Nenhuma saída registrada neste mês.</p>}
           </div>
         </div>
-      </div>
-      
-      <div className="ledger-card p-6">
+
+        <div className="ledger-card p-6">
           <h3 className="text-sm font-semibold text-foreground mb-6 flex items-center gap-2">
             <ArrowDownLeft size={18} className="text-success" /> 
             Entradas por Banco
@@ -125,6 +124,7 @@ export function BankDashboardTab({ ledger }: Props) {
 
             {incomeByBank.length === 0 && incomeWithoutBank === 0 && <p className="text-xs text-muted-foreground italic text-center py-4">Nenhuma entrada registrada neste mês.</p>}
           </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">

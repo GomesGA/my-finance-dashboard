@@ -11,9 +11,8 @@ interface Props {
   cards: CardBill[]; 
   bankAccounts: BankAccount[]; 
   categories: Category[];
-  onAdd: () => void;
+  onAdd: (name?: string, dueDay?: number) => string | void;
   onUpdate: (id: string, patch: Partial<CardBill>) => void;
-  // onEdit agora aceita o campo 'details' (rascunho da fatura)
   onEdit: (id: string, name: string, value: number, dueDay: number, categoryId?: string, details?: string) => void;
   onRemove: (id: string) => void;
   onAddBankAccount: (name: string, kind: 'PF' | 'PJ') => BankAccount;
@@ -21,10 +20,32 @@ interface Props {
 }
 
 export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpdate, onEdit, onRemove, onAddBankAccount, onAddCategory }: Props) {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState({ name: '', dueDay: '10', value: 0, categoryId: '', details: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', value: 0, dueDay: '', categoryId: '', details: '' });
   const [payingId, setPayingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const handleCreateCard = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cardName = addForm.name.trim();
+    if (!cardName) return;
+
+    const dueDay = Number(addForm.dueDay) || 1;
+    const newCardId = onAdd(cardName, dueDay);
+
+    if (newCardId && (addForm.value > 0 || addForm.categoryId || addForm.details)) {
+      onUpdate(newCardId, {
+        value: addForm.value || 0,
+        categoryId: addForm.categoryId || undefined,
+        details: addForm.details || undefined,
+      });
+    }
+
+    setAddForm({ name: '', dueDay: '10', value: 0, categoryId: '', details: '' });
+    setShowAddForm(false);
+  };
 
   const startEdit = (card: CardBill) => { 
     setEditingId(card.id); 
@@ -50,10 +71,81 @@ export function CardBillsSection({ cards, bankAccounts, categories, onAdd, onUpd
         <h2 className="font-semibold flex items-center gap-2 text-foreground">
           <CreditCard size={18} className="text-muted-foreground" /> Faturas de Cartão
         </h2>
-        <button type="button" onClick={onAdd} className="ledger-btn-outline flex items-center gap-1">
+        <button type="button" onClick={() => setShowAddForm(true)} className="ledger-btn-outline flex items-center gap-1">
           <Plus size={14} /> Novo Cartão
         </button>
       </div>
+
+      {/* Formulário animado para cadastrar novo cartão */}
+      <AnimatePresence>
+        {showAddForm && (
+          <motion.form
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            onSubmit={handleCreateCard}
+            className="mb-4 p-4 bg-muted rounded-lg border border-border space-y-3"
+          >
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-semibold text-foreground">Novo Cartão de Crédito</span>
+              <button type="button" onClick={() => setShowAddForm(false)} className="text-muted-foreground hover:text-foreground">
+                <X size={16} />
+              </button>
+            </div>
+            
+            <input
+              type="text"
+              placeholder="Nome do cartão (ex: Nubank, Inter)"
+              className="ledger-input w-full"
+              value={addForm.name}
+              onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
+              autoFocus
+              required
+            />
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="relative">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">R$</span>
+                <CurrencyInput
+                  placeholder="Fatura atual"
+                  className="ledger-input w-full font-mono pl-7"
+                  value={addForm.value}
+                  onChange={val => setAddForm(f => ({ ...f, value: val }))}
+                />
+              </div>
+              <input
+                type="number"
+                placeholder="Dia Venc."
+                className="ledger-input w-full text-center"
+                min={1}
+                max={31}
+                value={addForm.dueDay}
+                onChange={e => setAddForm(f => ({ ...f, dueDay: e.target.value }))}
+                required
+              />
+            </div>
+
+            <CategoryField
+              value={addForm.categoryId}
+              onChange={categoryId => setAddForm(f => ({ ...f, categoryId }))}
+              categories={categories}
+              onAddCategory={onAddCategory}
+              label="Categoria (opcional)"
+            />
+
+            <textarea
+              placeholder="Rascunho de gastos (opcional, ex: Uber 25, Ifood 60)..."
+              className="ledger-input w-full text-xs min-h-[50px] resize-y font-mono"
+              value={addForm.details}
+              onChange={e => setAddForm(f => ({ ...f, details: e.target.value }))}
+            />
+
+            <button type="submit" className="ledger-btn-primary w-full text-center">
+              Confirmar Cartão
+            </button>
+          </motion.form>
+        )}
+      </AnimatePresence>
 
       <div className="space-y-2">
         <AnimatePresence initial={false}>
